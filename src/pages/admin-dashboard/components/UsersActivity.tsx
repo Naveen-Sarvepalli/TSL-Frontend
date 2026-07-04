@@ -1,7 +1,87 @@
 import { Activity, Clock, FileText, Search, Shield, UsersRound } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import InviteSubAdminModal from './InviteSubAdminModal'
+import UserDetailsModal from './UserDetailsModal'
+import { useUserProfile } from '../../../context/UserProfileContext'
+import { adminApi } from '../../../services/tslApi'
+import './UserDetailsModal.css'
 
-const adminUsers = [
+interface User {
+  name: string
+  email: string
+  plan: string
+  status: string
+  joinDate: string
+  company?: string
+  phone?: string
+  registrationNumber?: string
+  address?: string
+}
+
+interface AdminUsersApiUser {
+  userId?: string
+  fullName?: string
+  email?: string
+  companyName?: string
+  contactPerson?: string
+  phone?: string
+  registrationNumber?: string
+  physicalAddress?: string
+  address?: string
+  plan?: string
+  status?: string
+  joinedAt?: string
+}
+
+interface AdminUsersApiData {
+  users?: AdminUsersApiUser[]
+}
+
+function formatPlan(plan?: string) {
+  if (!plan) return 'Operator'
+  const normalized = plan.toLowerCase()
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1)
+}
+
+function formatStatus(status?: string) {
+  if (!status) return 'Active'
+  const normalized = status.toLowerCase()
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1)
+}
+
+function formatJoinDate(joinedAt?: string) {
+  if (!joinedAt) return ''
+  const parsed = new Date(joinedAt)
+  if (Number.isNaN(parsed.getTime())) return joinedAt
+  return parsed.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function mapApiUser(user: AdminUsersApiUser): User | null {
+  if (!user.email) return null
+
+  return {
+    name: user.contactPerson || user.fullName || user.companyName || 'Unknown',
+    email: user.email,
+    plan: formatPlan(user.plan),
+    status: formatStatus(user.status),
+    joinDate: formatJoinDate(user.joinedAt),
+    company: user.companyName,
+    phone: user.phone,
+    registrationNumber: user.registrationNumber,
+    address: user.physicalAddress || user.address,
+  }
+}
+
+function isAdminLikeEmail(email: string) {
+  const normalized = email.toLowerCase()
+  return normalized.includes('admin') || normalized.includes('thestartuplegal')
+}
+
+const adminUsers: User[] = [
   { name: 'John Doe', email: 'john@example.com', plan: 'Operator', status: 'Active', joinDate: 'Jan 15, 2025' },
   { name: 'Sarah Smith', email: 'sarah@example.com', plan: 'Launchpad', status: 'Active', joinDate: 'Feb 20, 2025' },
   { name: 'Mike Johnson', email: 'mike@example.com', plan: 'Operator', status: 'Active', joinDate: 'Mar 10, 2025' },
@@ -48,7 +128,167 @@ const adminManagementRows = [
 type ManagementTab = 'users' | 'admins'
 
 export default function UsersActivity() {
+  const { profile } = useUserProfile()
   const [managementTab, setManagementTab] = useState<ManagementTab>('users')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [apiUsers, setApiUsers] = useState<User[] | null>(null)
+  
+  // Filter states for User Management
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedRole, setSelectedRole] = useState('All Roles')
+  const [selectedPlan, setSelectedPlan] = useState('All Plans')
+  const [selectedStatus, setSelectedStatus] = useState('All Status')
+  
+  // Filter states for Admin Management
+  const [adminSearchQuery, setAdminSearchQuery] = useState('')
+  const [adminSelectedStatus, setAdminSelectedStatus] = useState('All Status')
+  
+  // Dropdown open states
+  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false)
+  const [isPlanDropdownOpen, setIsPlanDropdownOpen] = useState(false)
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false)
+  const [isAdminStatusDropdownOpen, setIsAdminStatusDropdownOpen] = useState(false)
+  
+  // Refs for dropdown click outside detection
+  const roleDropdownRef = useRef<HTMLDivElement>(null)
+  const planDropdownRef = useRef<HTMLDivElement>(null)
+  const statusDropdownRef = useRef<HTMLDivElement>(null)
+  const adminStatusDropdownRef = useRef<HTMLDivElement>(null)
+  
+  useEffect(() => {
+    let isCurrent = true
+
+    adminApi.users().then((result) => {
+      if (!isCurrent || !result.success) return
+      const data = result.data as AdminUsersApiData | undefined
+      const users = data?.users
+        ?.map(mapApiUser)
+        .filter((user): user is User => Boolean(user))
+
+      if (users?.length) setApiUsers(users)
+    })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [])
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(event.target as Node)) {
+        setIsRoleDropdownOpen(false)
+      }
+      if (planDropdownRef.current && !planDropdownRef.current.contains(event.target as Node)) {
+        setIsPlanDropdownOpen(false)
+      }
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) {
+        setIsStatusDropdownOpen(false)
+      }
+      if (adminStatusDropdownRef.current && !adminStatusDropdownRef.current.contains(event.target as Node)) {
+        setIsAdminStatusDropdownOpen(false)
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleViewUser = (user: User) => {
+    setSelectedUser(user)
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedUser(null)
+  }
+
+  const handleOpenInviteModal = () => {
+    setIsInviteModalOpen(true)
+  }
+
+  const handleCloseInviteModal = () => {
+    setIsInviteModalOpen(false)
+  }
+
+  const handleSendInvitation = (data: { fullName: string; email: string; message: string }) => {
+    console.log('Sending invitation:', data)
+    // TODO: Implement API call to send invitation
+    // For now, just log the data
+  }
+
+  // Merge live profile data for the logged-in user into the API list for same-browser updates.
+  const mergedUsers = useMemo(() => {
+    const sourceUsers = apiUsers?.length ? apiUsers : adminUsers
+    if (!profile.email || isAdminLikeEmail(profile.email)) return sourceUsers
+
+    const existingIndex = sourceUsers.findIndex(
+      (u) => u.email.toLowerCase() === profile.email.toLowerCase(),
+    )
+    const liveRow: User = {
+      name: profile.contactPerson || profile.companyName || sourceUsers[existingIndex]?.name || 'Unknown',
+      email: profile.email,
+      plan: sourceUsers[existingIndex]?.plan ?? 'Operator',
+      status: sourceUsers[existingIndex]?.status ?? 'Active',
+      joinDate: sourceUsers[existingIndex]?.joinDate ?? '',
+      company: profile.companyName,
+      phone: profile.phone,
+      registrationNumber: profile.registrationNumber,
+      address: profile.physicalAddress,
+    }
+    if (existingIndex !== -1) {
+      const updated = [...sourceUsers]
+      updated[existingIndex] = liveRow
+      return updated
+    }
+    return [liveRow, ...sourceUsers]
+  }, [apiUsers, profile])
+
+  // Filter users based on search and filters
+  const filteredUsers = useMemo(() => {
+    return mergedUsers.filter((user) => {
+      // Search filter
+      const matchesSearch =
+        user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchQuery.toLowerCase())
+      
+      // Role filter (currently not used in data, but keeping for future)
+      const matchesRole = selectedRole === 'All Roles'
+      
+      // Plan filter
+      const matchesPlan = selectedPlan === 'All Plans' || user.plan === selectedPlan
+      
+      // Status filter
+      const matchesStatus = selectedStatus === 'All Status' || user.status === selectedStatus
+      
+      return matchesSearch && matchesRole && matchesPlan && matchesStatus
+    })
+  }, [mergedUsers, searchQuery, selectedRole, selectedPlan, selectedStatus])
+
+  // Filter admins based on search and filters
+  const filteredAdmins = useMemo(() => {
+    return adminManagementRows.filter((admin) => {
+      // Search filter
+      const matchesSearch =
+        admin.name.toLowerCase().includes(adminSearchQuery.toLowerCase()) ||
+        admin.email.toLowerCase().includes(adminSearchQuery.toLowerCase())
+      
+      // Status filter
+      const matchesStatus = adminSelectedStatus === 'All Status' || admin.status === adminSelectedStatus
+      
+      return matchesSearch && matchesStatus
+    })
+  }, [adminSearchQuery, adminSelectedStatus])
+
+  // Get unique plans for filter dropdown
+  const uniquePlans = Array.from(new Set(mergedUsers.map(user => user.plan)))
+
+  // Get unique statuses for filter dropdown
+  const uniqueStatuses = Array.from(new Set(mergedUsers.map(user => user.status)))
+  const uniqueAdminStatuses = Array.from(new Set(adminManagementRows.map(admin => admin.status)))
 
   return (
     <section className="admin-users">
@@ -129,30 +369,264 @@ export default function UsersActivity() {
         <div className={managementTab === 'admins' ? 'admin-users__filters admin-users__filters--admin' : 'admin-users__filters'}>
           <label className="admin-users__search">
             <Search size={17} />
-            <input type="search" placeholder="Search users..." />
+            <input
+              type="search"
+              placeholder="Search users..."
+              value={managementTab === 'users' ? searchQuery : adminSearchQuery}
+              onChange={(e) => managementTab === 'users' ? setSearchQuery(e.target.value) : setAdminSearchQuery(e.target.value)}
+            />
           </label>
           {managementTab === 'users' ? (
             <>
-              <button type="button" className="admin-users__filter-button">
-                All Roles
-                <span className="admin-users__select-arrow" aria-hidden="true" />
-              </button>
-              <button type="button" className="admin-users__filter-button">
-                All Plans
-                <span className="admin-users__select-arrow" aria-hidden="true" />
-              </button>
-              <button type="button" className="admin-users__filter-button">
-                All Status
-                <span className="admin-users__select-arrow" aria-hidden="true" />
-              </button>
+              {/* All Roles Dropdown */}
+              <div ref={roleDropdownRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="admin-users__filter-button"
+                  onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
+                >
+                  {selectedRole}
+                  <span className="admin-users__select-arrow" aria-hidden="true" />
+                </button>
+                {isRoleDropdownOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    marginTop: '4px',
+                    background: '#ffffff',
+                    border: '2px solid #e5e5e5',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    zIndex: 1000,
+                    overflow: 'hidden'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedRole('All Roles')
+                        setIsRoleDropdownOpen(false)
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        border: 'none',
+                        background: selectedRole === 'All Roles' ? '#f5f5f5' : 'transparent',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontSize: '16px'
+                      }}
+                    >
+                      All Roles
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* All Plans Dropdown */}
+              <div ref={planDropdownRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="admin-users__filter-button"
+                  onClick={() => setIsPlanDropdownOpen(!isPlanDropdownOpen)}
+                >
+                  {selectedPlan}
+                  <span className="admin-users__select-arrow" aria-hidden="true" />
+                </button>
+                {isPlanDropdownOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    marginTop: '4px',
+                    background: '#ffffff',
+                    border: '2px solid #e5e5e5',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    zIndex: 1000,
+                    overflow: 'hidden'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPlan('All Plans')
+                        setIsPlanDropdownOpen(false)
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        border: 'none',
+                        background: selectedPlan === 'All Plans' ? '#f5f5f5' : 'transparent',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontSize: '16px'
+                      }}
+                    >
+                      All Plans
+                    </button>
+                    {uniquePlans.map(plan => (
+                      <button
+                        key={plan}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPlan(plan)
+                          setIsPlanDropdownOpen(false)
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          border: 'none',
+                          background: selectedPlan === plan ? '#f5f5f5' : 'transparent',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          fontSize: '16px'
+                        }}
+                      >
+                        {plan}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* All Status Dropdown */}
+              <div ref={statusDropdownRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="admin-users__filter-button"
+                  onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                >
+                  {selectedStatus}
+                  <span className="admin-users__select-arrow" aria-hidden="true" />
+                </button>
+                {isStatusDropdownOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    marginTop: '4px',
+                    background: '#ffffff',
+                    border: '2px solid #e5e5e5',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    zIndex: 1000,
+                    overflow: 'hidden'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStatus('All Status')
+                        setIsStatusDropdownOpen(false)
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        border: 'none',
+                        background: selectedStatus === 'All Status' ? '#f5f5f5' : 'transparent',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontSize: '16px'
+                      }}
+                    >
+                      All Status
+                    </button>
+                    {uniqueStatuses.map(status => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStatus(status)
+                          setIsStatusDropdownOpen(false)
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          border: 'none',
+                          background: selectedStatus === status ? '#f5f5f5' : 'transparent',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          fontSize: '16px'
+                        }}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <>
-              <button type="button" className="admin-users__filter-button">
-                All Status
-                <span className="admin-users__select-arrow" aria-hidden="true" />
-              </button>
-              <button type="button" className="admin-users__invite">
+              {/* Admin Status Dropdown */}
+              <div ref={adminStatusDropdownRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="admin-users__filter-button"
+                  onClick={() => setIsAdminStatusDropdownOpen(!isAdminStatusDropdownOpen)}
+                >
+                  {adminSelectedStatus}
+                  <span className="admin-users__select-arrow" aria-hidden="true" />
+                </button>
+                {isAdminStatusDropdownOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    marginTop: '4px',
+                    background: '#ffffff',
+                    border: '2px solid #e5e5e5',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    zIndex: 1000,
+                    overflow: 'hidden'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdminSelectedStatus('All Status')
+                        setIsAdminStatusDropdownOpen(false)
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        border: 'none',
+                        background: adminSelectedStatus === 'All Status' ? '#f5f5f5' : 'transparent',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontSize: '16px'
+                      }}
+                    >
+                      All Status
+                    </button>
+                    {uniqueAdminStatuses.map(status => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => {
+                          setAdminSelectedStatus(status)
+                          setIsAdminStatusDropdownOpen(false)
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '12px 16px',
+                          border: 'none',
+                          background: adminSelectedStatus === status ? '#f5f5f5' : 'transparent',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          fontSize: '16px'
+                        }}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button type="button" className="admin-users__invite" onClick={handleOpenInviteModal}>
                 Invite Sub Admin
               </button>
             </>
@@ -176,8 +650,15 @@ export default function UsersActivity() {
                 </tr>
               </thead>
               <tbody>
-                {adminUsers.map((user) => (
-                  <tr key={user.email}>
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
+                      No users found matching your filters
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <tr key={user.email}>
                     <td>
                       <span className="admin-users__checkbox" />
                     </td>
@@ -201,12 +682,13 @@ export default function UsersActivity() {
                     </td>
                     <td>{user.joinDate}</td>
                     <td>
-                      <button type="button" className="admin-users__view">
+                      <button type="button" className="admin-users__view" onClick={() => handleViewUser(user)}>
                         View
                       </button>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           ) : (
@@ -225,8 +707,15 @@ export default function UsersActivity() {
                 </tr>
               </thead>
               <tbody>
-                {adminManagementRows.map((admin) => (
-                  <tr key={admin.email}>
+                {filteredAdmins.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
+                      No admins found matching your filters
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAdmins.map((admin) => (
+                    <tr key={admin.email}>
                     <td>
                       <span className="admin-users__checkbox" />
                     </td>
@@ -266,12 +755,27 @@ export default function UsersActivity() {
                       </span>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           )}
         </div>
       </div>
+
+      {selectedUser && (
+        <UserDetailsModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          user={selectedUser}
+        />
+      )}
+
+      <InviteSubAdminModal
+        isOpen={isInviteModalOpen}
+        onClose={handleCloseInviteModal}
+        onSendInvitation={handleSendInvitation}
+      />
     </section>
   )
 }

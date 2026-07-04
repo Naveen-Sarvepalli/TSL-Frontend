@@ -1,5 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router-dom'
+import { NotificationProvider } from '../context/NotificationContext'
+import { UserProfileProvider } from '../context/UserProfileContext'
 import { RootLayout } from '../layouts/RootLayout'
 
 const Home = lazy(() => import('../pages/Home'))
@@ -7,7 +9,14 @@ const About = lazy(() => import('../pages/About'))
 const Features = lazy(() => import('../pages/Features'))
 const Pricing = lazy(() => import('../pages/Pricing'))
 const Contact = lazy(() => import('../pages/Contact'))
+const Counsel = lazy(() => import('../pages/Counsel'))
+const PlaybooksInsights = lazy(() => import('../pages/PlaybooksInsights'))
 const AdminDashboard = lazy(() => import('../pages/admin-dashboard/AdminDashboard'))
+const CounselLogin = lazy(() => import('../pages/counsel-portal/CounselLogin'))
+const CounselEmailSent = lazy(() => import('../pages/counsel-portal/CounselEmailSent'))
+const CounselPortal = lazy(() => import('../pages/counsel-portal/CounselPortal'))
+const CounselProfile = lazy(() => import('../pages/counsel-portal/CounselProfile'))
+const CounselResetPassword = lazy(() => import('../pages/counsel-portal/CounselResetPassword'))
 const Dashboard = lazy(() => import('../pages/user-dashboard/Dashboard'))
 const DashboardCounsel = lazy(() => import('../pages/user-dashboard/DashboardCounsel'))
 const DashboardNotifications = lazy(() => import('../pages/user-dashboard/DashboardNotifications'))
@@ -21,6 +30,8 @@ const WizardDetails = lazy(() => import('../pages/WizardDetails'))
 
 export function AppRoutes() {
   return (
+    <UserProfileProvider>
+    <NotificationProvider>
     <Suspense
       fallback={
         <div className="grid min-h-screen place-items-center bg-navy-primary text-white">
@@ -35,7 +46,15 @@ export function AppRoutes() {
           <Route path="features" element={<Features />} />
           <Route path="pricing" element={<Pricing />} />
           <Route path="contact" element={<Contact />} />
+          <Route path="counsel" element={<Counsel />} />
+          <Route path="playbooks-insights" element={<PlaybooksInsights />} />
           <Route path="admin/dashboard" element={<AdminDashboard />} />
+          <Route path="counsel/login" element={<CounselLogin />} />
+          <Route path="counsel/dashboard" element={<CounselPortal mode="dashboard" />} />
+          <Route path="counsel/email-sent" element={<CounselEmailSent />} />
+          <Route path="counsel/reset-password" element={<CounselResetPassword />} />
+          <Route path="counsel/requests" element={<CounselPortal mode="requests" />} />
+          <Route path="counsel/profile" element={<CounselProfile />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="dashboard/counsel" element={<DashboardCounsel />} />
           <Route path="dashboard/notifications" element={<DashboardNotifications />} />
@@ -49,5 +68,7 @@ export function AppRoutes() {
         </Route>
       </Routes>
     </Suspense>
+    </NotificationProvider>
+    </UserProfileProvider>
   )
 }

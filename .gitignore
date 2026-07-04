@@ -22,6 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-node_modules/
-build/
-.env
+
+# Figma MCP Configuration
+mcp-config.json
+FIGMA_MCP_SETUP.md
+setup-figma-mcp.sh

@@ -28,6 +28,8 @@ export interface AuthUser {
   token: string
   tokenExpiry?: string
   createdAt?: string
+  portal?: 'sme' | 'admin' | 'counsel'
+  mustResetPassword?: boolean
 }
 
 export interface RegisterPayload {
@@ -102,6 +104,12 @@ async function request<T = unknown>(
   return payload
 }
 
+function emitAuthSessionChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('tsl-auth-session-changed'))
+  }
+}
+
 export function saveAuthSession(user?: AuthUser) {
   localStorage.setItem('tsl-authenticated', 'true')
 
@@ -112,12 +120,16 @@ export function saveAuthSession(user?: AuthUser) {
   if (user) {
     localStorage.setItem('tsl-auth-user', JSON.stringify(user))
   }
+
+  emitAuthSessionChanged()
 }
 
 export function clearAuthSession() {
   localStorage.removeItem('tsl-authenticated')
   localStorage.removeItem('tsl-auth-token')
   localStorage.removeItem('tsl-auth-user')
+  localStorage.removeItem('tsl-dashboard-payment-complete')
+  emitAuthSessionChanged()
 }
 
 export const authApi = {
@@ -178,6 +190,8 @@ export const billingApi = {
 }
 
 export const profileApi = {
+  get: (email?: string) =>
+    request(email ? `/api/v1/sme/profile?email=${encodeURIComponent(email)}` : '/api/v1/sme/profile'),
   update: (payload: JsonRecord) => request('/api/v1/sme/profile', 'PUT', payload),
 }
 
@@ -203,8 +217,9 @@ export const counselPortalApi = {
     request(`/api/v1/counsel/requests/${requestId}/reject`, 'POST', { reason }),
   requests: () => request('/api/v1/counsel/requests'),
   updateProfile: (payload: JsonRecord) => request('/api/v1/counsel/profile', 'PUT', payload),
+  resetPassword: (payload: JsonRecord) => request<AuthUser>('/api/v1/counsel/reset-password', 'POST', payload, false),
 }
 
 export const playbookApi = {
-  list: () => request<PlaybooksData>('/api/v1/playbooks', 'GET', undefined, false),
+  playBookList: () => request<PlaybooksData>('/api/v1/playbooks', 'GET', undefined, false),
 }
