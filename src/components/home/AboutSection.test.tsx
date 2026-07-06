@@ -63,7 +63,7 @@ describe('AboutSection', () => {
 
   describe('Icons', () => {
     it('should render CircleDot icon in eyebrow', () => {
-      const { container } = render(<AboutSection />)
+      render(<AboutSection />)
       
       const eyebrow = screen.getByText('About The Startup Legal').closest('span')
       const svg = eyebrow?.querySelector('svg')

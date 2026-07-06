@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { FloatingAIButton } from '../components/home/FloatingAIButton'
-import { Footer } from '../components/layout/Footer'
+// import { Footer } from '../components/layout/Footer'
 import { Navbar } from '../components/layout/Navbar'
 
 export function RootLayout() {
@@ -16,10 +16,13 @@ export function RootLayout() {
   useEffect(() => {
     // Trigger animation on route change
     setIsAnimating(true)
-    
-    window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-    })
+
+    // Pages that manage their own scroll target should not be reset to top
+    if (pathname !== '/about' && pathname !== '/features' && pathname !== '/pricing' && pathname !== '/contact') {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+      })
+    }
 
     // Remove animation class after animation completes
     const timer = setTimeout(() => {
@@ -36,7 +39,7 @@ export function RootLayout() {
       <main className={isAnimating ? 'page-transition-enter' : ''}>
         <Outlet />
       </main>
-      {!isFocusedAppFlow && <Footer />}
+      {/* {!isFocusedAppFlow && <Footer />} */}
       {!isFocusedAppFlow && <FloatingAIButton />}
     </div>
   )

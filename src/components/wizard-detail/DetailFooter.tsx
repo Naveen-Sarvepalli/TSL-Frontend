@@ -41,7 +41,14 @@ export function DetailFooter() {
 
         <div className="detail-footer__bottom">
           <p>© Copyright 2025 The Legal Startup. All rights reserved.</p>
-          <div>
+          <p className="detail-footer__bottom-founder">
+            Founded by{' '}
+            <a href="https://linkedin.com/in/mzuzukile-soni" className="detail-footer__founder-link">
+              Mzuzukile Soni
+            </a>
+            {' '}• Proudly South African • IBM Techscale Partner
+          </p>
+          <div className="detail-footer__bottom-links">
             <a href="/wizard-catalogue">Sign Up</a>
             <a href="/">Login</a>
           </div>
