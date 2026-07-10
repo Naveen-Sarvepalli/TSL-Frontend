@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Redirect stdin from /dev/null to keep fd 0 occupied and satisfy buildah constraints
-RUN npm ci < /dev/null
+RUN npm ci 0<&1
 
 # Copy only source needed for production build
 COPY src ./src
