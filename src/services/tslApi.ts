@@ -47,8 +47,8 @@ export interface LoginPayload {
 }
 
 export interface GoogleAuthPayload {
-  idToken: string
-  portal?: 'sme' | 'admin' | 'counsel'
+  // The Google OAuth access token — server calls UserInfo API to resolve email/name/picture
+  access_token: string
 }
 
 export interface ForgotPasswordPayload {
@@ -173,6 +173,7 @@ export const counselApi = {
   credits: () => request<CounselCredits>('/api/v1/sme/counsel/credits'),
   createRequest: (payload: JsonRecord) => request('/api/v1/sme/counsel/requests', 'POST', payload),
   requests: () => request<CounselRequest[]>('/api/v1/sme/counsel/requests'),
+  topUpCredits: (payload: JsonRecord) => request<CounselCredits>('/api/v1/sme/counsel/topup', 'POST', payload),
 }
 
 export const notificationApi = {
@@ -189,6 +190,35 @@ export const billingApi = {
   addPaymentMethod: (payload: JsonRecord) => request('/api/v1/sme/billing/payment-methods', 'POST', payload),
 }
 
+export interface PaystackInitialization {
+  provider: 'paystack'
+  mode: 'test'
+  reference: string
+  accessCode: string
+  authorizationUrl: string
+  publicKey: string
+  amount: number
+  amountInKobo: number
+  currency: string
+  email: string
+  plan: string
+}
+
+export interface PaystackVerification {
+  provider: 'paystack'
+  reference: string
+  status: 'success' | 'failed' | 'cancelled'
+  gatewayResponse: string
+  paidAt?: string
+}
+
+export const paymentApi = {
+  initializePaystack: (payload: JsonRecord) =>
+    request<PaystackInitialization>('/api/v1/sme/payments/paystack/initialize', 'POST', payload),
+  verifyPaystack: (payload: JsonRecord) =>
+    request<PaystackVerification>('/api/v1/sme/payments/paystack/verify', 'POST', payload),
+}
+
 export const profileApi = {
   get: (email?: string) =>
     request(email ? `/api/v1/sme/profile?email=${encodeURIComponent(email)}` : '/api/v1/sme/profile'),
@@ -197,6 +227,9 @@ export const profileApi = {
 
 export const adminApi = {
   dashboard: () => request('/api/v1/admin/dashboard'),
+  profile: () => request('/api/v1/admin/profile'),
+  updateProfile: (payload: JsonRecord) => request('/api/v1/admin/profile', 'PUT', payload),
+  changePassword: (payload: JsonRecord) => request('/api/v1/admin/change-password', 'PUT', payload),
   users: () => request('/api/v1/admin/users'),
   updateUser: (userId: string, payload: JsonRecord) => request(`/api/v1/admin/users/${userId}`, 'PUT', payload),
   inviteAdmin: (payload: JsonRecord) => request('/api/v1/admin/admins/invite', 'POST', payload),
@@ -206,17 +239,47 @@ export const adminApi = {
   assignCounselRequest: (requestId: string, payload: JsonRecord) =>
     request(`/api/v1/admin/counsel-requests/${requestId}/assign`, 'POST', payload),
   issues: () => request('/api/v1/admin/issues'),
-  billing: () => request('/api/v1/admin/billing'),
+  billing: (params?: { search?: string; client?: string; plan?: string; month?: string }) => {
+    const qs = new URLSearchParams()
+    if (params?.search) qs.set('search', params.search)
+    if (params?.client) qs.set('client', params.client)
+    if (params?.plan)   qs.set('plan',   params.plan)
+    if (params?.month)  qs.set('month',  params.month)
+    const query = qs.toString()
+    return request(`/api/v1/admin/billing${query ? `?${query}` : ''}`)
+  },
+  // Triggers an async server-side export job; backend emails the download link.
+  // PRODUCTION: replace mock endpoint with real export service — no frontend changes needed.
+  exportBilling: (payload?: { format?: 'pdf' | 'csv'; filters?: JsonRecord }) =>
+    request<{ jobId: string; status: string; notificationEmail: string }>(
+      '/api/v1/admin/billing/export',
+      'POST',
+      payload ?? {},
+    ),
+}
+
+export const adminSettingsApi = {
+  getGeneral:              () => request('/api/v1/admin/settings/general'),
+  saveGeneral:             (payload: JsonRecord) => request('/api/v1/admin/settings/general', 'PUT', payload),
+  getNotifications:        () => request('/api/v1/admin/settings/notifications'),
+  saveNotifications:       (payload: JsonRecord) => request('/api/v1/admin/settings/notifications', 'PUT', payload),
+  getSecurity:             () => request('/api/v1/admin/settings/security'),
+  saveSecurity:            (payload: JsonRecord) => request('/api/v1/admin/settings/security', 'PUT', payload),
 }
 
 export const counselPortalApi = {
-  dashboard: () => request('/api/v1/counsel/dashboard'),
+  dashboard: (email?: string) =>
+    request(email ? `/api/v1/counsel/dashboard?email=${encodeURIComponent(email)}` : '/api/v1/counsel/dashboard'),
+  profile: (email?: string) =>
+    request(email ? `/api/v1/counsel/profile?email=${encodeURIComponent(email)}` : '/api/v1/counsel/profile'),
   availability: (availability: string) => request('/api/v1/counsel/availability', 'PATCH', { availability }),
   acceptRequest: (requestId: string) => request(`/api/v1/counsel/requests/${requestId}/accept`, 'POST'),
   rejectRequest: (requestId: string, reason: string) =>
     request(`/api/v1/counsel/requests/${requestId}/reject`, 'POST', { reason }),
-  requests: () => request('/api/v1/counsel/requests'),
+  requests: (email?: string) =>
+    request(email ? `/api/v1/counsel/requests?email=${encodeURIComponent(email)}` : '/api/v1/counsel/requests'),
   updateProfile: (payload: JsonRecord) => request('/api/v1/counsel/profile', 'PUT', payload),
+  changePassword: (payload: JsonRecord) => request('/api/v1/counsel/change-password', 'PUT', payload),
   resetPassword: (payload: JsonRecord) => request<AuthUser>('/api/v1/counsel/reset-password', 'POST', payload, false),
 }
 

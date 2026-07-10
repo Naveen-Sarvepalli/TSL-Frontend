@@ -1,7 +1,8 @@
 import { BriefcaseBusiness, Camera, Mail, MapPin, Phone, UserRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { DashboardShell } from '../../components/dashboard/DashboardShell'
-import { profileApi } from '../../services/tslApi'
+import { authApi, profileApi } from '../../services/tslApi'
 import { setPageMetadata } from '../../services/metadata'
 import { useUserProfile } from '../../context/UserProfileContext'
 import type { UserProfile } from '../../context/UserProfileContext'
@@ -16,6 +17,15 @@ export default function DashboardProfile() {
   const [formData, setFormData] = useState<UserProfile>(profile)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  })
+  const [isPasswordSaving, setIsPasswordSaving] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null)
 
   setPageMetadata('Profile', 'Manage your account settings and preferences.')
 
@@ -48,11 +58,62 @@ export default function DashboardProfile() {
 
   const handleInputChange = (field: keyof UserProfile, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    setSaveError(null)
+    setSaveMessage(null)
+  }
+
+  const handlePasswordInputChange = (field: keyof typeof passwordData, value: string) => {
+    setPasswordData((prev) => ({ ...prev, [field]: value }))
+    setPasswordError(null)
+    setPasswordMessage(null)
+  }
+
+  const handlePasswordSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setPasswordError(null)
+    setPasswordMessage(null)
+
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      setPasswordError('Enter current password, new password, and confirmation.')
+      return
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('New password and confirm password must match.')
+      return
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters.')
+      return
+    }
+
+    setIsPasswordSaving(true)
+    const result = await authApi.changePassword({
+      email: profile.email,
+      currentPassword: passwordData.currentPassword,
+      newPassword: passwordData.newPassword,
+      confirmPassword: passwordData.confirmPassword,
+    })
+    setIsPasswordSaving(false)
+
+    if (!result.success) {
+      setPasswordError(result.message ?? 'Failed to update password.')
+      return
+    }
+
+    setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    })
+    setPasswordMessage(result.message ?? 'Password changed successfully.')
   }
 
   const handleSave = async () => {
     setIsSaving(true)
     setSaveError(null)
+    setSaveMessage(null)
     const result = await profileApi.update({ ...formData })
     setIsSaving(false)
     if (!result.success) {
@@ -60,11 +121,13 @@ export default function DashboardProfile() {
       return
     }
     updateProfile(formData)
+    setSaveMessage(result.message ?? 'Profile saved successfully.')
   }
 
   const handleCancel = () => {
     setFormData(profile)
     setSaveError(null)
+    setSaveMessage(null)
   }
 
   return (
@@ -217,8 +280,13 @@ export default function DashboardProfile() {
               </div>
 
               {saveError && (
-                <p className="dashboard-profile__save-error" role="alert">
+                <p className="dashboard-profile__save-message dashboard-profile__save-message--error" role="alert">
                   {saveError}
+                </p>
+              )}
+              {saveMessage && (
+                <p className="dashboard-profile__save-message dashboard-profile__save-message--success" role="status">
+                  {saveMessage}
                 </p>
               )}
               <div className="dashboard-profile__actions">
@@ -245,13 +313,15 @@ export default function DashboardProfile() {
                   <h2>Change Password</h2>
                 </div>
 
-                <form className="dashboard-profile__security-form">
+                <form className="dashboard-profile__security-form" onSubmit={handlePasswordSave}>
                   <div className="dashboard-profile__field">
                     <label htmlFor="currentPassword">Current Password</label>
                     <input
                       type="password"
                       id="currentPassword"
                       placeholder="Enter current password"
+                      value={passwordData.currentPassword}
+                      onChange={(event) => handlePasswordInputChange('currentPassword', event.target.value)}
                     />
                   </div>
 
@@ -261,6 +331,8 @@ export default function DashboardProfile() {
                       type="password"
                       id="newPassword"
                       placeholder="Enter new password"
+                      value={passwordData.newPassword}
+                      onChange={(event) => handlePasswordInputChange('newPassword', event.target.value)}
                     />
                   </div>
 
@@ -270,11 +342,24 @@ export default function DashboardProfile() {
                       type="password"
                       id="confirmPassword"
                       placeholder="Confirm new password"
+                      value={passwordData.confirmPassword}
+                      onChange={(event) => handlePasswordInputChange('confirmPassword', event.target.value)}
                     />
                   </div>
 
-                  <button type="submit" className="dashboard-profile__update-button">
-                    Update Password
+                  {passwordError && (
+                    <p className="dashboard-profile__security-message dashboard-profile__security-message--error" role="alert">
+                      {passwordError}
+                    </p>
+                  )}
+                  {passwordMessage && (
+                    <p className="dashboard-profile__security-message dashboard-profile__security-message--success" role="status">
+                      {passwordMessage}
+                    </p>
+                  )}
+
+                  <button type="submit" className="dashboard-profile__update-button" disabled={isPasswordSaving}>
+                    {isPasswordSaving ? 'Updating...' : 'Update Password'}
                   </button>
                 </form>
               </section>

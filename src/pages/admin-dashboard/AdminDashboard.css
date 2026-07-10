@@ -212,6 +212,8 @@
 .admin-dashboard__requests {
   padding: 29px 24px 24px;
   align-self: start;
+  grid-column: 1 / 2;
+  grid-row: 1;
 }
 
 .admin-dashboard__section-heading {
@@ -306,7 +308,7 @@
   border-radius: 999px;
   background: #d3a038;
   color: #ffffff;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 10px 18px rgba(207, 155, 47, 0.26);
@@ -348,6 +350,10 @@
 
 .admin-dashboard__quick-actions svg {
   color: #cf9b2f;
+}
+
+.modal-content--issue {
+  overflow: auto !important;
 }
 
 .admin-dashboard__wizard-metric {
@@ -394,6 +400,7 @@
 
 .admin-dashboard__revenue {
   grid-column: 1 / 2;
+  grid-row: 2;
   padding: 26px 25px 28px;
 }
 
@@ -451,11 +458,11 @@
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   align-items: end;
-  gap: 10px;
+  gap: 6px;
   border-bottom: 2px solid #bfc4c9;
   border-left: 2px solid #bfc4c9;
   margin: 0;
-  padding: 0 10px;
+  padding: 0 6px;
   background-image:
     linear-gradient(to top, rgba(0, 0, 0, 0.07) 1px, transparent 1px),
     linear-gradient(to right, rgba(0, 0, 0, 0.07) 1px, transparent 1px);
@@ -493,8 +500,9 @@
 }
 
 .admin-dashboard__bar-group span {
-  width: 40px;
-  max-height: 250px;
+  width: 100%;
+  max-width: 36px;
+  max-height: 100%;
   border-radius: 8px 8px 0 0;
   background: #c9c7c1;
   opacity: 0.82;
@@ -919,6 +927,367 @@
   height: 16px;
   background: #e5e5e5;
 }
+
+/* ── Shared dropdown (replaces inline styles) ────────────────────────────── */
+.adm-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: #fff;
+  border: 2px solid #e5e5e5;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.adm-dropdown__item {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  color: #1f2328;
+  transition: background 0.12s;
+}
+
+.adm-dropdown__item:hover { background: #f7f8fa; }
+.adm-dropdown__item--active { background: #f5f5f5; font-weight: 600; }
+
+/* ── Admin Edit Modal ────────────────────────────────────────────────────── */
+.adm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(13,27,42,.46);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.adm-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 16px 48px rgba(13,27,42,.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.adm-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 24px 24px 18px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.adm-modal__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0d1b2a;
+  margin: 0 0 3px;
+  font-family: var(--font-display);
+}
+
+.adm-modal__subtitle {
+  font-size: 13px;
+  color: #57606a;
+  margin: 0;
+}
+
+.adm-modal__close {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: #57606a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  transition: background .15s;
+}
+
+.adm-modal__close:hover { background: #f3f4f6; color: #0d1b2a; }
+
+.adm-modal__body {
+  padding: 20px 24px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.adm-modal__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.adm-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.adm-modal__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #57606a;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.adm-modal__label-icon {
+  color: #c79a3b;
+  display: flex;
+  align-items: center;
+}
+
+.adm-modal__input,
+.adm-modal__select {
+  height: 42px;
+  padding: 0 13px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 9px;
+  font-size: 14px;
+  color: #0d1b2a;
+  background: #fff;
+  transition: border-color .15s;
+  outline: none;
+}
+
+.adm-modal__input:focus,
+.adm-modal__select:focus { border-color: #c79a3b; }
+
+.adm-modal__input[readonly],
+.adm-modal__input:disabled { background: #f7f8fa; color: #57606a; cursor: default; }
+
+.adm-modal__input--error { border-color: #dc2626 !important; }
+.adm-modal__error { font-size: 12px; color: #dc2626; margin: 0; }
+
+.adm-modal__meta {
+  display: flex;
+  gap: 24px;
+  padding: 14px 0 4px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.adm-modal__meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.adm-modal__meta-item span {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #57606a;
+}
+
+.adm-modal__meta-item strong {
+  font-size: 13.5px;
+  color: #0d1b2a;
+}
+
+.adm-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.adm-modal__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 22px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, opacity .15s;
+}
+
+.adm-modal__btn--outline {
+  background: transparent;
+  border: 1.5px solid #d1d5db;
+  color: #48556a;
+}
+
+.adm-modal__btn--outline:hover { background: #f9fafb; }
+
+.adm-modal__btn--primary {
+  background: linear-gradient(180deg, #c79a3b, #d4a84f);
+  border: none;
+  color: #fff;
+}
+
+.adm-modal__btn--primary:hover:not(:disabled) { opacity: .88; }
+.adm-modal__btn--primary:disabled,
+.adm-modal__btn--loading { opacity: .65; cursor: not-allowed; }
+
+/* ── Confirmation / Revoke Dialog ────────────────────────────────────────── */
+.adm-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  background: rgba(13,27,42,.52);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.adm-dialog {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 420px;
+  padding: 28px 28px 24px;
+  box-shadow: 0 16px 48px rgba(13,27,42,.22);
+  text-align: center;
+}
+
+.adm-dialog--revoke .adm-dialog__icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(220,38,38,.08);
+  color: #dc2626;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 16px;
+}
+
+.adm-dialog__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0d1b2a;
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+}
+
+.adm-dialog__body {
+  font-size: 14px;
+  color: #57606a;
+  line-height: 1.6;
+  margin: 0 0 22px;
+}
+
+.adm-dialog__body strong { color: #0d1b2a; }
+
+.adm-dialog__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.adm-dialog__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 22px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, opacity .15s;
+}
+
+.adm-dialog__btn--outline {
+  background: transparent;
+  border: 1.5px solid #d1d5db;
+  color: #48556a;
+}
+
+.adm-dialog__btn--outline:hover { background: #f9fafb; }
+
+.adm-dialog__btn--danger {
+  background: #dc2626;
+  border: none;
+  color: #fff;
+}
+
+.adm-dialog__btn--danger:hover:not(:disabled) { background: #b91c1c; }
+.adm-dialog__btn--danger:disabled,
+.adm-dialog__btn--loading { opacity: .65; cursor: not-allowed; }
+
+/* ── Spinner ──────────────────────────────────────────────────────────────── */
+.adm-spin {
+  animation: adm-spin-kf 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes adm-spin-kf {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Toast notification ──────────────────────────────────────────────────── */
+.adm-toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 70;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 280px;
+  max-width: 400px;
+  padding: 13px 14px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(13,27,42,.16);
+  animation: adm-toast-in .22s ease;
+}
+
+@keyframes adm-toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.adm-toast--success { border: 1px solid rgba(22,163,74,.3); }
+.adm-toast--error   { border: 1px solid rgba(220,38,38,.3); }
+
+.adm-toast__icon { flex-shrink: 0; display: flex; align-items: center; margin-top: 1px; }
+.adm-toast--success .adm-toast__icon { color: #16a34a; }
+.adm-toast--error   .adm-toast__icon { color: #dc2626; }
+
+.adm-toast__msg { flex: 1; font-size: 13.5px; color: #1f2328; line-height: 1.5; margin: 0; }
+
+.adm-toast__close {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: #57606a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 4px;
+  transition: background .12s;
+}
+
+.adm-toast__close:hover { background: #f3f4f6; }
+
 
 .admin-counsel {
   display: grid;
@@ -1801,6 +2170,23 @@
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.admin-settings__footer button:disabled,
+.admin-settings__save-btn--loading {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.admin-settings__save-spinner {
+  animation: admin-settings-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes admin-settings-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 .admin-settings__billing {
@@ -2099,6 +2485,359 @@
   min-height: 220px;
 }
 
+/* ── Invoice action button icon alignment ────────────────────────────────── */
+.admin-settings__invoice-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Status pills ─────────────────────────────────────────────────────────── */
+.admin-billing__status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-billing__status-pill--paid {
+  background: rgba(22, 163, 74, 0.1);
+  color: #16a34a;
+  border: 1px solid rgba(22, 163, 74, 0.2);
+}
+
+.admin-billing__status-pill--pending {
+  background: rgba(199, 154, 59, 0.1);
+  color: #c79a3b;
+  border: 1px solid rgba(199, 154, 59, 0.25);
+}
+
+.admin-billing__status-pill--failed {
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+/* ── Loading skeleton ─────────────────────────────────────────────────────── */
+.admin-billing__skeleton {
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-billing__skeleton-row {
+  height: 44px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: admin-billing-shimmer 1.4s infinite;
+}
+
+@keyframes admin-billing-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Empty & error states ─────────────────────────────────────────────────── */
+.admin-billing__empty-state,
+.admin-billing__error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 24px;
+  color: #57606a;
+  font-size: 14px;
+  text-align: center;
+}
+
+.admin-billing__error-state {
+  color: #dc2626;
+}
+
+.admin-billing__error-state button {
+  margin-top: 4px;
+  padding: 7px 18px;
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  background: transparent;
+  color: #dc2626;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.admin-billing__error-state button:hover {
+  background: rgba(220, 38, 38, 0.06);
+}
+
+/* ── View Invoice Modal ────────────────────────────────────────────────────── */
+.admin-billing__modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(13, 27, 42, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.admin-billing__modal {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 12px 40px rgba(13, 27, 42, 0.18);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-billing__modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.admin-billing__modal-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0d1b2a;
+  margin: 0 0 2px;
+  font-family: var(--font-display);
+}
+
+.admin-billing__modal-header p {
+  font-size: 13px;
+  color: #57606a;
+  margin: 0;
+}
+
+.admin-billing__modal-close {
+  border: 0;
+  background: transparent;
+  color: #57606a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.admin-billing__modal-close:hover {
+  background: #f3f4f6;
+  color: #0d1b2a;
+}
+
+.admin-billing__modal-body {
+  padding: 4px 24px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.admin-billing__modal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f3f4f6;
+  gap: 12px;
+  font-size: 13.5px;
+}
+
+.admin-billing__modal-row:last-child {
+  border-bottom: 0;
+}
+
+.admin-billing__modal-row > span:first-child {
+  color: #57606a;
+  flex-shrink: 0;
+  width: 110px;
+}
+
+.admin-billing__modal-row strong {
+  color: #0d1b2a;
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+}
+
+.admin-billing__mono {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+  color: #48556a;
+}
+
+.admin-billing__modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.admin-billing__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 7px;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.admin-billing__btn--outline {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  color: #48556a;
+}
+
+.admin-billing__btn--outline:hover {
+  background: #f9fafb;
+  border-color: #adb5bd;
+}
+
+.admin-billing__btn--primary {
+  background: #c79a3b;
+  border: 1px solid #c79a3b;
+  color: #fff;
+}
+
+.admin-billing__btn--primary:hover {
+  background: #b8882d;
+  border-color: #b8882d;
+}
+
+/* ── Download Invoices export button ─────────────────────────────────────── */
+.admin-billing__export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(199, 154, 59, 0.5);
+  background: rgba(199, 154, 59, 0.07);
+  color: #c79a3b;
+  transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.admin-billing__export-btn:hover:not(:disabled) {
+  background: rgba(199, 154, 59, 0.14);
+}
+
+.admin-billing__export-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-billing__export-btn--loading {
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+/* Spinner animation */
+.admin-billing__spinner {
+  animation: admin-billing-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes admin-billing-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Export Toast ─────────────────────────────────────────────────────────── */
+.admin-billing__toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 70;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 300px;
+  max-width: 440px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(13, 27, 42, 0.16);
+  animation: admin-billing-toast-in 0.22s ease;
+}
+
+@keyframes admin-billing-toast-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.admin-billing__toast--success {
+  background: #fff;
+  border: 1px solid rgba(22, 163, 74, 0.3);
+}
+
+.admin-billing__toast--error {
+  background: #fff;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+.admin-billing__toast-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+}
+
+.admin-billing__toast--success .admin-billing__toast-icon { color: #16a34a; }
+.admin-billing__toast--error   .admin-billing__toast-icon { color: #dc2626; }
+
+.admin-billing__toast-msg {
+  flex: 1;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #1f2328;
+  margin: 0;
+}
+
+.admin-billing__toast-close {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: #57606a;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: background 0.12s;
+  margin-top: 1px;
+}
+
+.admin-billing__toast-close:hover {
+  background: #f3f4f6;
+  color: #0d1b2a;
+}
+
 .admin-assignment {
   position: fixed;
   inset: 0;
@@ -2119,9 +2858,11 @@
 
 .admin-assignment__modal--assign {
   width: min(100%, 672px);
+  height: calc(100vh - 40px);
   max-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .admin-assignment__header {
@@ -2299,12 +3040,11 @@
 }
 
 .admin-assignment__assign-body {
-  min-height: 0;
   display: flex;
   flex: 1;
   flex-direction: column;
   gap: 16px;
-  overflow: auto;
+  overflow-y: auto;
   padding: 24px;
 }
 
@@ -2364,10 +3104,12 @@
 }
 
 .admin-assignment__counsel-list {
-  max-height: 560px;
+  height: 280px;
+  flex-shrink: 0;
   display: grid;
+  align-content: start;
   gap: 12px;
-  overflow: auto;
+  overflow-y: auto;
   padding-right: 8px;
 }
 
@@ -3208,6 +3950,31 @@
   padding: 0 28px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.admin-profile__actions button:disabled,
+.admin-profile__primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.admin-profile__message {
+  margin: 18px 0 -8px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.admin-profile__password-form .admin-profile__message {
+  margin: -4px 0 0;
+}
+
+.admin-profile__message--success {
+  color: #16a34a;
+}
+
+.admin-profile__message--error {
+  color: #dc2626;
 }
 
 .admin-profile__actions button:first-child {

@@ -2,6 +2,7 @@ import { Eye, EyeOff, Mail, X } from 'lucide-react'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
+import { useGoogleLogin } from '@react-oauth/google'
 import { authApi, saveAuthSession } from '../../services/tslApi'
 import './SignInModal.css'
 
@@ -166,38 +167,42 @@ function SignInModalContent({
     }
   }
 
-  const handleGoogleSignIn = async () => {
-    setFormError('')
-    setIsSubmitting(true)
+  const handleGoogleSignIn = useGoogleLogin({
+    // Google returns an access_token — pass it straight to our server.
+    // The server calls Google UserInfo internally and maps the email to a role.
+    onSuccess: async (tokenResponse) => {
+      setFormError('')
+      setIsSubmitting(true)
+      try {
+        const response = await authApi.google({
+          access_token: tokenResponse.access_token,
+        })
 
-    try {
-      const response = await authApi.google({
-        idToken: 'google_id_token_here',
-        portal: 'sme',
-      })
+        if (!response.success) {
+          setFormError(response.message ?? 'Access denied. This Google account is not registered for TSL.')
+          return
+        }
 
-      if (!response.success) {
-        setFormError(response.message ?? 'Unable to continue with Google.')
-        return
+        saveAuthSession(response.data)
+        onAuthenticated?.()
+        onClose()
+        navigate(getAuthenticatedRoute(response.data, redirectTo), {
+          state: response.data?.mustResetPassword
+            ? { email: response.data.email, token: response.data.token }
+            : undefined,
+        })
+      } catch {
+        setFormError('Mock API is not reachable. Please confirm the mock server is running on port 8080.')
+      } finally {
+        setIsSubmitting(false)
       }
-
-      saveAuthSession(response.data)
-      onAuthenticated?.()
-      onClose()
-      navigate(getAuthenticatedRoute(response.data, redirectTo), {
-        state: response.data?.mustResetPassword
-          ? {
-              email: response.data.email,
-              token: response.data.token,
-            }
-          : undefined,
-      })
-    } catch {
-      setFormError('Mock API is not reachable. Please confirm the mock server is running on port 8080.')
-    } finally {
+    },
+    onError: () => {
+      setFormError('Google sign-in failed. Please try again.')
       setIsSubmitting(false)
-    }
-  }
+    },
+    scope: 'openid email profile',
+  })
 
   const toggleMode = () => {
     setMode(mode === 'signin' ? 'signup' : 'signin')
@@ -358,7 +363,7 @@ function SignInModalContent({
 
             <button
               type="button"
-              onClick={handleGoogleSignIn}
+              onClick={() => handleGoogleSignIn()}
               className="signin-modal__google"
               disabled={isSubmitting}
             >
