@@ -3,8 +3,12 @@ FROM node:24-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 
-# Redirect stdin from /dev/null to keep fd 0 occupied and satisfy buildah constraints
-RUN npm ci 0<&1
+# Dynamic stream allocator: populates fd 0, 1, or 2 only if the runner left them closed
+RUN touch /tmp/fd_fix && \
+    { true <&0 2>/dev/null || exec 0</tmp/fd_fix; } && \
+    { true >&1 2>/dev/null || exec 1>/tmp/fd_fix; } && \
+    { true >&2 2>/dev/null || exec 2>/tmp/fd_fix; } && \
+    npm ci
 
 # Copy only source needed for production build
 COPY src ./src
@@ -13,7 +17,13 @@ COPY public ./public
 COPY tailwind.config.ts .
 COPY vite.config.ts .
 COPY tsconfig*.json .
-RUN npm run build 0<&1
+
+# Apply the same stream shield to the production compilation layer
+RUN touch /tmp/fd_fix && \
+    { true <&0 2>/dev/null || exec 0</tmp/fd_fix; } && \
+    { true >&1 2>/dev/null || exec 1>/tmp/fd_fix; } && \
+    { true >&2 2>/dev/null || exec 2>/tmp/fd_fix; } && \
+    npm run build
 
 # ---------- Stage 2: Serve with NGINX ----------
 FROM nginx:stable-alpine
