@@ -13,7 +13,7 @@ COPY public ./public
 COPY tailwind.config.ts .
 COPY vite.config.ts .
 COPY tsconfig*.json .
-RUN npm run build
+RUN npm run build 0<&1
 
 # ---------- Stage 2: Serve with NGINX ----------
 FROM nginx:stable-alpine
