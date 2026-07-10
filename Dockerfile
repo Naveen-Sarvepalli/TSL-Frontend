@@ -2,7 +2,10 @@
 FROM node:24-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+
+# Redirect stdin from /dev/null to keep fd 0 occupied and satisfy buildah constraints
+RUN npm ci < /dev/null
+
 # Copy only source needed for production build
 COPY src ./src
 COPY index.html .
@@ -11,6 +14,7 @@ COPY tailwind.config.ts .
 COPY vite.config.ts .
 COPY tsconfig*.json .
 RUN npm run build
+
 # ---------- Stage 2: Serve with NGINX ----------
 FROM nginx:stable-alpine
 RUN rm -rf /usr/share/nginx/html/*
