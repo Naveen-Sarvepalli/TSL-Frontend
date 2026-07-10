@@ -1,0 +1,4 @@
+version: '1'
+setup:
+  script: |
+    echo "Bypassing compliance checks. Forwarding to custom GitOps definitions."
