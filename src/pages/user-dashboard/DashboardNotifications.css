@@ -5,14 +5,23 @@
 }
 
 .dashboard-notifications__header {
+  position: relative;
   min-height: 120px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
+  gap: 20px;
   border-bottom: 1px solid #dddddd;
   padding: 24px 32px;
   background: #ffffff;
+}
+
+.dashboard-notifications__header > div {
+  flex: 1;
+}
+
+.dashboard-notifications__header > button:last-child {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .dashboard-notifications__header h1 {
@@ -37,6 +46,22 @@
   color: #ffffff;
   font-weight: 800;
   cursor: pointer;
+}
+
+/* ── Back button reset — undoes the header button rule above ── */
+.dashboard-notifications__header .dashboard-back-btn {
+  min-height: 36px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  background: #d3a038;
+  flex-shrink: 0;
+  transition: background 160ms ease;
+}
+
+.dashboard-notifications__header .dashboard-back-btn:hover {
+  background: #b8892e;
 }
 
 .dashboard-notifications__content {
@@ -163,6 +188,22 @@
 
 .dashboard-notifications__earlier-title {
   margin: 32px 0 16px;
+}
+
+.dashboard-notifications__load-more {
+  display: block;
+  margin: 16px auto 0;
+  border: 0;
+  background: transparent;
+  color: #cf9b2f;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.dashboard-notifications__load-more:hover {
+  text-decoration: underline;
 }
 
 .dashboard-notifications__sidebar {
@@ -335,3 +376,52 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Toast notification ───────────────────────────────────────────────────── */
+
+.dn-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  max-width: 360px;
+  animation: dn-toast-in 0.22s ease;
+}
+
+@keyframes dn-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dn-toast--success { border: 1px solid rgba(22, 163, 74, 0.3); }
+.dn-toast--error   { border: 1px solid rgba(220, 38, 38, 0.3); }
+
+.dn-toast__icon { flex-shrink: 0; display: flex; align-items: center; margin-top: 1px; }
+.dn-toast--success .dn-toast__icon { color: #16a34a; }
+.dn-toast--error   .dn-toast__icon { color: #dc2626; }
+
+.dn-toast__msg { flex: 1; font-size: 13.5px; color: #1f2328; line-height: 1.5; margin: 0; }
+
+.dn-toast__close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #57606a;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dn-toast__close:hover { background: #f3f4f6; }

@@ -1,9 +1,11 @@
+import { BackButton } from '../../components/dashboard/BackButton'
 import {
   AlertTriangle,
   Briefcase,
   CalendarDays,
   Camera,
   LockKeyhole,
+  Loader2,
   Mail,
   MapPin,
   Phone,
@@ -267,6 +269,9 @@ export default function AdminDashboard() {
     const nav = searchParams.get('nav')
     return (nav === 'profile' ? 'profile' : 'dashboard') as AdminNavKey
   })
+  const [showAllRequests, setShowAllRequests] = useState(false)
+  const [requestSearch, setRequestSearch] = useState('')
+  const [requestFilterStatus, setRequestFilterStatus] = useState('All Status')
 
   // Assign modal filters
   const [counselSearch, setCounselSearch] = useState('')
@@ -295,6 +300,17 @@ export default function AdminDashboard() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [isAddCounselModalOpen, setIsAddCounselModalOpen] = useState(false)
   const [counselList, setCounselList] = useState<CounselMember[]>(initialCounselMembers)
+
+  // ── Admin profile preferences ─────────────────────────────────────────────
+  type AdminPrefs = { workflowUpdates: boolean; weeklySummary: boolean; productUpdates: boolean }
+  const EMPTY_PREFS: AdminPrefs = { workflowUpdates: true, weeklySummary: true, productUpdates: true }
+  const [prefBaseline, setPrefBaseline] = useState<AdminPrefs>(EMPTY_PREFS)
+  const [prefs, setPrefs] = useState<AdminPrefs>(EMPTY_PREFS)
+  const [prefLoading, setPrefLoading] = useState(true)
+  const [prefSaving, setPrefSaving] = useState(false)
+  const [prefMessage, setPrefMessage] = useState<string | null>(null)
+  const prefMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isPrefDirty = (Object.keys(EMPTY_PREFS) as (keyof AdminPrefs)[]).some((k) => prefs[k] !== prefBaseline[k])
 
   setPageMetadata('Admin Dashboard', 'TSL admin dashboard for platform KPIs, counsel requests, revenue, and issues.')
 
@@ -349,6 +365,44 @@ export default function AdminDashboard() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    adminApi.getProfilePreferences().then((res) => {
+      if (cancelled) return
+      setPrefLoading(false)
+      if (res.success && res.data) {
+        const d = res.data as Partial<AdminPrefs>
+        const loaded: AdminPrefs = {
+          workflowUpdates: d.workflowUpdates ?? EMPTY_PREFS.workflowUpdates,
+          weeklySummary:   d.weeklySummary   ?? EMPTY_PREFS.weeklySummary,
+          productUpdates:  d.productUpdates  ?? EMPTY_PREFS.productUpdates,
+        }
+        setPrefBaseline(loaded)
+        setPrefs(loaded)
+      }
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  const handlePrefSave = async () => {
+    if (!isPrefDirty || prefSaving) return
+    setPrefSaving(true)
+    setPrefMessage(null)
+    const res = await adminApi.saveProfilePreferences(prefs as unknown as Record<string, unknown>)
+    setPrefSaving(false)
+    if (!res.success) {
+      setPrefMessage('⚠ ' + (res.message ?? 'Failed to save preferences.'))
+      return
+    }
+    const saved = (res.data as Partial<AdminPrefs>) ?? {}
+    const next: AdminPrefs = { ...prefs, ...saved }
+    setPrefBaseline(next)
+    setPrefs(next)
+    setPrefMessage(res.message ?? 'Preferences saved successfully.')
+    if (prefMsgTimerRef.current) clearTimeout(prefMsgTimerRef.current)
+    prefMsgTimerRef.current = setTimeout(() => setPrefMessage(null), 4000)
+  }
 
   const revenueMonths = useMemo(
     () => dashboardData?.revenueChart?.months ?? [],
@@ -460,7 +514,11 @@ export default function AdminDashboard() {
       if (!current?.recentCounselRequests) return current
       return {
         ...current,
-        recentCounselRequests: current.recentCounselRequests.filter((request) => request.requestId !== activeRequest.requestId),
+        recentCounselRequests: current.recentCounselRequests.map((request) =>
+          request.requestId === activeRequest.requestId
+            ? { ...request, status: 'in_progress' }
+            : request,
+        ),
       }
     })
     closeAssignmentModal()
@@ -552,7 +610,9 @@ export default function AdminDashboard() {
             ? 'Settings'
             : activeNav === 'profile'
               ? 'Profile'
-              : 'Dashboard Overview'
+              : showAllRequests
+                ? 'Counsel Requests'
+                : 'Dashboard Overview'
   const headerDescription =
     activeNav === 'users'
       ? 'Manage platform administrators, permissions, and user access'
@@ -564,7 +624,9 @@ export default function AdminDashboard() {
             ? 'Configure billing, notifications, and platform security'
             : activeNav === 'profile'
               ? 'Manage your account settings and preferences'
-              : "Welcome back! Here's what's happening with your platform today."
+              : showAllRequests
+                ? 'All counsel requests submitted by users'
+                : "Welcome back! Here's what's happening with your platform today."
 
   return (
     <>
@@ -590,7 +652,7 @@ export default function AdminDashboard() {
                   .filter(Boolean)
                   .join(' ')}
                 key={item.label}
-                onClick={() => setActiveNav(item.key)}
+                onClick={() => { setActiveNav(item.key); setShowAllRequests(false); setRequestSearch('') }}
               >
                 <Icon size={17} />
                 <span>{item.label}</span>
@@ -604,7 +666,7 @@ export default function AdminDashboard() {
           <button
             type="button"
             className={activeNav === 'profile' ? 'admin-dashboard__nav-item admin-dashboard__nav-item--active' : 'admin-dashboard__nav-item'}
-            onClick={() => setActiveNav('profile')}
+            onClick={() => { setActiveNav('profile'); setShowAllRequests(false); setRequestSearch('') }}
           >
             <UserRound size={17} />
             <span>Profile</span>
@@ -618,6 +680,12 @@ export default function AdminDashboard() {
 
       <main className="admin-dashboard__main">
         <header className="admin-dashboard__header">
+          {activeNav !== 'dashboard' && (
+            <BackButton
+              onClick={() => setActiveNav('dashboard')}
+              label="Back to Dashboard"
+            />
+          )}
           <h1>{headerTitle}</h1>
           <p>{headerDescription}</p>
         </header>
@@ -879,22 +947,52 @@ export default function AdminDashboard() {
               {profileTab === 'preferences' && (
                 <section className="admin-profile__card admin-profile__preferences">
                   <h2>Email Preferences</h2>
-                  {[
-                    ['Workflow Updates', 'Notifications about wizard progress and completions'],
-                    ['Weekly Summary', 'Receive a weekly digest of your activity'],
-                    ['Product Updates', 'News about new features and improvements'],
-                  ].map(([title, description]) => (
-                    <div className="admin-profile__preference" key={title}>
+                  {(
+                    [
+                      { key: 'workflowUpdates' as keyof AdminPrefs, title: 'Workflow Updates',  desc: 'Notifications about wizard progress and completions' },
+                      { key: 'weeklySummary'   as keyof AdminPrefs, title: 'Weekly Summary',    desc: 'Receive a weekly digest of your activity' },
+                      { key: 'productUpdates'  as keyof AdminPrefs, title: 'Product Updates',   desc: 'News about new features and improvements' },
+                    ] as { key: keyof AdminPrefs; title: string; desc: string }[]
+                  ).map(({ key, title, desc }) => (
+                    <div className="admin-profile__preference" key={key}>
                       <div>
                         <h3>{title}</h3>
-                        <p>{description}</p>
+                        <p>{desc}</p>
                       </div>
                       <label className="admin-profile__toggle">
-                        <input type="checkbox" defaultChecked />
+                        <input
+                          type="checkbox"
+                          checked={prefs[key]}
+                          disabled={prefLoading}
+                          onChange={() => {
+                            setPrefs((prev) => ({ ...prev, [key]: !prev[key] }))
+                            setPrefMessage(null)
+                          }}
+                        />
                         <span />
                       </label>
                     </div>
                   ))}
+
+                  {prefMessage && (
+                    <p className={`admin-profile__message ${prefMessage.startsWith('⚠') ? 'admin-profile__message--error' : 'admin-profile__message--success'}`}
+                      style={{ marginTop: '16px' }}>
+                      {prefMessage}
+                    </p>
+                  )}
+
+                  <footer className="admin-settings__footer" style={{ marginTop: '24px' }}>
+                    <button
+                      type="button"
+                      disabled={!isPrefDirty || prefSaving}
+                      className={prefSaving ? 'admin-settings__save-btn--loading' : ''}
+                      onClick={handlePrefSave}
+                    >
+                      {prefSaving
+                        ? <><Loader2 size={18} className="admin-settings__save-spinner" /> Saving…</>
+                        : 'Save Preferences'}
+                    </button>
+                  </footer>
                 </section>
               )}
             </div>
@@ -951,6 +1049,109 @@ export default function AdminDashboard() {
             counselMembers={counselList}
             onCounselAdded={(c) => setCounselList((prev) => [...prev, c])}
           />
+        ) : showAllRequests ? (
+          <section className="admin-dashboard__all-requests">
+            {/* ── Single white container: search bar + divider + list ── */}
+            <div className="ar-container">
+              {/* Search + filter row */}
+              <div className="ar-container__search">
+                <label className="ar-search-input">
+                  <Search size={16} />
+                  <input
+                    type="search"
+                    placeholder="Search users..."
+                    value={requestSearch}
+                    onChange={(e) => setRequestSearch(e.target.value)}
+                  />
+                </label>
+                <select
+                  className="ar-search-select"
+                  value={requestFilterStatus}
+                  onChange={(e) => setRequestFilterStatus(e.target.value)}
+                >
+                  <option>All Status</option>
+                  <option>Pending</option>
+                  <option>In Progress</option>
+                  <option>Completed</option>
+                </select>
+              </div>
+
+              {/* Divider */}
+              <hr className="ar-container__divider" />
+
+              {/* Heading + cards */}
+              {(() => {
+                const filtered = counselRequests.filter((r) => {
+                  const q = requestSearch.toLowerCase()
+                  const matchSearch = !q || r.subject.toLowerCase().includes(q) || r.fromUser.toLowerCase().includes(q)
+                  const normStatus = r.status.toLowerCase().replace(/_/g, ' ')
+                  const matchStatus = requestFilterStatus === 'All Status' || normStatus === requestFilterStatus.toLowerCase()
+                  return matchSearch && matchStatus
+                })
+                return (
+                  <div className="ar-list">
+                    <div className="ar-list__heading">
+                      <h2>All Requests</h2>
+                      <p>{filtered.length} request(s) found</p>
+                    </div>
+                    {filtered.length === 0 ? (
+                      <p className="admin-dashboard__all-requests-empty">No counsel requests match your filters.</p>
+                    ) : (
+                      <div className="ar-cards">
+                        {filtered.map((request) => {
+                          const normStatus = request.status?.toLowerCase().replace(/_/g, ' ')
+                          const assignedBy = (request as Record<string, unknown>).assignedCounselName as string | undefined
+                          const email = (request as Record<string, unknown>).fromUserEmail as string | undefined
+                          return (
+                            <article className="ar-card" key={request.requestId}>
+                              {/* Col 1 row 1: title */}
+                              <div className="ar-card__top">
+                                <h3 className="ar-card__title">{request.subject || 'Contract Review for SaaS Agreement'}</h3>
+                              </div>
+                              {/* Col 2 rows 1-2: date + by (spans via CSS grid-row) */}
+                              <div className="ar-card__mid">
+                                <div className="ar-card__date">
+                                  <CalendarDays size={15} />
+                                  <span>{request.receivedAt ? new Date(request.receivedAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Jan 12, 2026'}</span>
+                                </div>
+                                <span className="ar-card__assigned-by">By: <strong>{assignedBy ?? 'Admin'}</strong></span>
+                              </div>
+                              {/* Col 3 rows 1-2: status badge + accept button stacked */}
+                              <div className="ar-card__right">
+                                <span className={`admin-dashboard__request-status admin-dashboard__request-status--${normStatus?.replace(/ /g, '-')}`}>
+                                  {normStatus === 'in progress' ? 'In Progress' : normStatus === 'pending' ? 'Pending' : normStatus === 'completed' ? 'Completed' : request.status}
+                                </span>
+                                {normStatus === 'pending' && (
+                                  <button
+                                    type="button"
+                                    className="ar-card__btn ar-card__btn--accept"
+                                    onClick={() => openPreviewModal(request)}
+                                  >
+                                    <Check size={14} />
+                                    Accept
+                                  </button>
+                                )}
+                              </div>
+                              {/* Col 1 row 2: user */}
+                              <div className="ar-card__bottom">
+                                <div className="ar-card__user">
+                                  <UserRound size={15} className="ar-card__user-icon" />
+                                  <div className="ar-card__user-info">
+                                    <span className="ar-card__user-name">{request.fromUser || 'Michael Chen'}</span>
+                                    <span className="ar-card__user-email">{email ?? `${(request.fromUser || 'user').toLowerCase().replace(/\s+/g, '.')}@company.com`}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </article>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          </section>
         ) : (
           <>
         <section className="admin-dashboard__kpis" aria-label="Admin KPI summary">
@@ -993,23 +1194,32 @@ export default function AdminDashboard() {
                 <h2>Counsel Requests</h2>
                 <p>counsel requests from users</p>
               </div>
-              <button type="button">View All</button>
+              <button type="button" onClick={() => setShowAllRequests(true)}>View All</button>
             </div>
             <div className="admin-dashboard__request-grid">
-              {counselRequests.map((request) => (
-                <article className="admin-dashboard__request-card" key={request.requestId}>
-                  <div>
-                    <h3>{request.subject || 'Contract Review for SaaS Agreement'}</h3>
-                    <time>{formatTimeAgo(request.receivedAt)}</time>
-                  </div>
-                  <p>
-                    From: <strong>{request.fromUser || 'Michael Chen'}</strong>
-                  </p>
-                  <button type="button" onClick={() => openPreviewModal(request)}>
-                    Preview &amp; Assign to Counsel
-                  </button>
-                </article>
-              ))}
+              {counselRequests.map((request) => {
+                const normStatus = request.status?.toLowerCase().replace(/_/g, ' ')
+                const statusLabel = normStatus === 'in progress' ? 'In Progress' : normStatus === 'pending' ? 'Pending' : normStatus === 'completed' ? 'Completed' : request.status
+                return (
+                  <article className="admin-dashboard__request-card" key={request.requestId}>
+                    <div>
+                      <h3>{request.subject || 'Contract Review for SaaS Agreement'}</h3>
+                      <time>{formatTimeAgo(request.receivedAt)}</time>
+                    </div>
+                    <p>
+                      From: <strong>{request.fromUser || 'Michael Chen'}</strong>
+                    </p>
+                    <span className={`admin-dashboard__request-status admin-dashboard__request-status--${normStatus?.replace(/ /g, '-')}`}>
+                      {statusLabel}
+                    </span>
+                    {normStatus === 'pending' && (
+                      <button type="button" onClick={() => openPreviewModal(request)}>
+                        Preview &amp; Assign to Counsel
+                      </button>
+                    )}
+                  </article>
+                )
+              })}
             </div>
           </section>
 

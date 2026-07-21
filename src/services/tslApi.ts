@@ -53,6 +53,7 @@ export interface GoogleAuthPayload {
 
 export interface ForgotPasswordPayload {
   email: string
+  portal?: 'user' | 'admin' | 'counsel'
 }
 
 export interface ResetPasswordPayload {
@@ -136,6 +137,7 @@ export const authApi = {
   register: (payload: RegisterPayload) => request<AuthUser>('/api/v1/auth/register', 'POST', payload, false),
   login: (payload: LoginPayload) => request<AuthUser>('/api/v1/auth/login', 'POST', payload, false),
   forgotPassword: (payload: ForgotPasswordPayload) => request('/api/v1/auth/forgot-password', 'POST', payload, false),
+  verifyResetToken: (token: string) => request(`/api/v1/auth/verify-reset-token?token=${encodeURIComponent(token)}`, 'GET', undefined, false),
   resetPassword: (payload: ResetPasswordPayload) => request('/api/v1/auth/reset-password', 'POST', payload, false),
   google: (payload: GoogleAuthPayload) => request<AuthUser>('/api/v1/auth/google', 'POST', payload, false),
   changePassword: (payload: JsonRecord) => request('/api/v1/auth/change-password', 'PUT', payload),
@@ -143,17 +145,30 @@ export const authApi = {
 
 import type {
   BillingData,
+  BillingHistoryInvoice,
   CounselCredits,
   CounselRequest,
   DashboardData,
+  DowngradeResult,
+  FailedPayment,
+  LegalLinks,
   NotificationsData,
   PaymentMethod,
   PlaybooksData,
+  ProratedUpgradePreview,
+  QuickAccessLinks,
+  SubscriptionData,
+  SubscriptionPlan,
+  UpgradeResult,
   WizardItem,
 } from './dashboardTypes'
 
 export const smeApi = {
   dashboard: () => request<DashboardData>('/api/v1/sme/dashboard'),
+  quickAccessLinks: () => request<QuickAccessLinks>('/api/v1/sme/quick-access-links'),
+  legalLinks: () => request<LegalLinks>('/api/v1/sme/legal-links'),
+  getProfilePreferences: () => request<JsonRecord>('/api/v1/sme/profile/preferences'),
+  saveProfilePreferences: (payload: JsonRecord) => request('/api/v1/sme/profile/preferences', 'PUT', payload),
   downloadWorkflow: (workflowId: string, type = 'pdf') =>
     request(`/api/v1/sme/workflows/${workflowId}/download?type=${encodeURIComponent(type)}`),
   startWizard: (wizardId: string, notes = '') =>
@@ -188,6 +203,41 @@ export const billingApi = {
   summary: () => request<BillingData>('/api/v1/sme/billing'),
   paymentMethods: () => request<PaymentMethod[]>('/api/v1/sme/billing/payment-methods'),
   addPaymentMethod: (payload: JsonRecord) => request('/api/v1/sme/billing/payment-methods', 'POST', payload),
+  setDefaultMethod: (methodId: string) => request(`/api/v1/sme/billing/payment-methods/${methodId}/default`, 'PATCH'),
+  removeMethod: (methodId: string) => request(`/api/v1/sme/billing/payment-methods/${methodId}`, 'DELETE'),
+}
+
+// ── Subscription (Upgrade / Downgrade) API ────────────────────────────────
+// All subscription mutation calls go through this namespace.
+// To switch to production: update VITE_API_BASE_URL — no UI changes required.
+
+export const subscriptionApi = {
+  /** GET  /api/v1/subscription — current plan, usage, billing date, pending downgrade */
+  get: () => request<SubscriptionData>('/api/v1/subscription'),
+
+  /** GET  /api/v1/plans — all available plans with features */
+  plans: () => request<SubscriptionPlan[]>('/api/v1/plans'),
+
+  /** GET  /api/v1/subscription/upgrade/preview?toPlanId=X — prorated charge preview */
+  upgradePreview: (toPlanId: string) =>
+    request<ProratedUpgradePreview>(`/api/v1/subscription/upgrade/preview?toPlanId=${encodeURIComponent(toPlanId)}`),
+
+  /** POST /api/v1/subscription/upgrade — confirm & charge immediately.
+   *  paymentReference is the Paystack reference returned after a successful
+   *  checkout. When present, the server records it on the invoice.
+   *  When absent (mock/test), the server simulates the charge internally. */
+  upgrade: (payload: { currentPlanId: string; toPlanId: string; paymentReference?: string }) =>
+    request<UpgradeResult>('/api/v1/subscription/upgrade', 'POST', payload),
+
+  /** POST /api/v1/subscription/downgrade — schedule downgrade for next billing cycle */
+  downgrade: (payload: { currentPlanId: string; toPlanId: string }) =>
+    request<DowngradeResult>('/api/v1/subscription/downgrade', 'POST', payload),
+
+  /** DELETE /api/v1/subscription/downgrade — cancel scheduled downgrade */
+  cancelDowngrade: () => request('/api/v1/subscription/downgrade', 'DELETE'),
+
+  /** GET /api/v1/subscription/invoices — full billing history */
+  invoices: () => request<BillingHistoryInvoice[]>('/api/v1/subscription/invoices'),
 }
 
 export interface PaystackInitialization {
@@ -204,12 +254,24 @@ export interface PaystackInitialization {
   plan: string
 }
 
+export interface PaystackCardAuthorization {
+  authorization_code?: string
+  card_type?: string
+  last4?: string
+  exp_month?: string
+  exp_year?: string
+  bank?: string
+  reusable?: boolean
+}
+
 export interface PaystackVerification {
   provider: 'paystack'
   reference: string
   status: 'success' | 'failed' | 'cancelled'
   gatewayResponse: string
   paidAt?: string
+  /** Present on successful verification — real Paystack card authorization object */
+  authorization?: PaystackCardAuthorization
 }
 
 export const paymentApi = {
@@ -228,6 +290,8 @@ export const profileApi = {
 export const adminApi = {
   dashboard: () => request('/api/v1/admin/dashboard'),
   profile: () => request('/api/v1/admin/profile'),
+  getProfilePreferences: () => request<JsonRecord>('/api/v1/admin/profile/preferences'),
+  saveProfilePreferences: (payload: JsonRecord) => request('/api/v1/admin/profile/preferences', 'PUT', payload),
   updateProfile: (payload: JsonRecord) => request('/api/v1/admin/profile', 'PUT', payload),
   changePassword: (payload: JsonRecord) => request('/api/v1/admin/change-password', 'PUT', payload),
   users: () => request('/api/v1/admin/users'),
@@ -239,6 +303,10 @@ export const adminApi = {
   assignCounselRequest: (requestId: string, payload: JsonRecord) =>
     request(`/api/v1/admin/counsel-requests/${requestId}/assign`, 'POST', payload),
   issues: () => request('/api/v1/admin/issues'),
+  // Fetch failed payment transactions.
+  // PRODUCTION: backend populates this from payment gateway webhooks / subscription failures.
+  // Replace mock endpoint with real API — no frontend changes needed.
+  failedPayments: () => request<FailedPayment[]>('/api/v1/admin/payments/failed'),
   billing: (params?: { search?: string; client?: string; plan?: string; month?: string }) => {
     const qs = new URLSearchParams()
     if (params?.search) qs.set('search', params.search)
@@ -265,6 +333,10 @@ export const adminSettingsApi = {
   saveNotifications:       (payload: JsonRecord) => request('/api/v1/admin/settings/notifications', 'PUT', payload),
   getSecurity:             () => request('/api/v1/admin/settings/security'),
   saveSecurity:            (payload: JsonRecord) => request('/api/v1/admin/settings/security', 'PUT', payload),
+  // Password policy — fetched when modal opens, saved on modal submit.
+  // Switching to production only requires changing VITE_API_BASE_URL.
+  getPasswordPolicy:       () => request('/api/v1/admin/settings/password-policy'),
+  savePasswordPolicy:      (payload: JsonRecord) => request('/api/v1/admin/settings/password-policy', 'PUT', payload),
 }
 
 export const counselPortalApi = {
@@ -274,6 +346,8 @@ export const counselPortalApi = {
     request(email ? `/api/v1/counsel/profile?email=${encodeURIComponent(email)}` : '/api/v1/counsel/profile'),
   availability: (availability: string) => request('/api/v1/counsel/availability', 'PATCH', { availability }),
   acceptRequest: (requestId: string) => request(`/api/v1/counsel/requests/${requestId}/accept`, 'POST'),
+  completeRequest: (requestId: string, payload: JsonRecord) =>
+    request(`/api/v1/counsel/requests/${requestId}/complete`, 'POST', payload),
   rejectRequest: (requestId: string, reason: string) =>
     request(`/api/v1/counsel/requests/${requestId}/reject`, 'POST', { reason }),
   requests: (email?: string) =>
