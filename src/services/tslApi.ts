@@ -62,7 +62,7 @@ export interface ResetPasswordPayload {
   confirmPassword: string
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '')
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
 function authHeaders(): HeadersInit {
   const token = localStorage.getItem('tsl-auth-token')
@@ -149,6 +149,7 @@ import type {
   CounselCredits,
   CounselRequest,
   DashboardData,
+  DocumentItem,
   DowngradeResult,
   FailedPayment,
   LegalLinks,
@@ -287,6 +288,20 @@ export const profileApi = {
   update: (payload: JsonRecord) => request('/api/v1/sme/profile', 'PUT', payload),
 }
 
+export interface ActiveSession {
+  sessionId: string
+  device: string
+  location: string
+  ip: string
+  lastActive: string
+  isCurrent: boolean
+}
+
+export const securityApi = {
+  getSessions: () => request<ActiveSession[]>('/api/v1/sme/security/sessions'),
+  revokeSession: (sessionId: string) => request<ActiveSession[]>(`/api/v1/sme/security/sessions/${encodeURIComponent(sessionId)}`, 'DELETE'),
+}
+
 export const adminApi = {
   dashboard: () => request('/api/v1/admin/dashboard'),
   profile: () => request('/api/v1/admin/profile'),
@@ -359,4 +374,9 @@ export const counselPortalApi = {
 
 export const playbookApi = {
   playBookList: () => request<PlaybooksData>('/api/v1/playbooks', 'GET', undefined, false),
+}
+
+export const documentsApi = {
+  /** GET /api/v1/documents — returns a flat array of PDF playbook documents */
+  list: () => request<DocumentItem[]>('/api/v1/documents'),
 }

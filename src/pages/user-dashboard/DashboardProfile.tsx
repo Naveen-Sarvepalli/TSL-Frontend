@@ -1,9 +1,10 @@
 import { BackButton } from '../../components/dashboard/BackButton'
-import { BriefcaseBusiness, Camera, Loader2, Mail, MapPin, Phone, UserRound, X } from 'lucide-react'
+import { BriefcaseBusiness, Camera, Loader2, Mail, MapPin, Monitor, Phone, Smartphone, Trash2, UserRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { DashboardShell } from '../../components/dashboard/DashboardShell'
-import { authApi, profileApi, smeApi } from '../../services/tslApi'
+import { authApi, profileApi, securityApi, smeApi } from '../../services/tslApi'
+import type { ActiveSession } from '../../services/tslApi'
 import { setPageMetadata } from '../../services/metadata'
 import { useUserProfile } from '../../context/UserProfileContext'
 import type { UserProfile } from '../../context/UserProfileContext'
@@ -30,6 +31,14 @@ export default function DashboardProfile() {
   const [isPasswordSaving, setIsPasswordSaving] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null)
+
+  // ── Two-Factor Authentication ──────────────────────────────────────────────
+  // ── Active Sessions ────────────────────────────────────────────────────────
+  const [sessions, setSessions] = useState<ActiveSession[]>([])
+  const [sessionsLoading, setSessionsLoading] = useState(true)
+  const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [sessionMessage, setSessionMessage] = useState<string | null>(null)
+  const sessionMsgTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Email preferences ─────────────────────────────────────────────────────
   type UserPrefs = { workflowUpdates: boolean; weeklySummary: boolean; productUpdates: boolean }
@@ -73,6 +82,16 @@ export default function DashboardProfile() {
 
   useEffect(() => {
     let cancelled = false
+    securityApi.getSessions().then((res) => {
+      if (cancelled) return
+      setSessionsLoading(false)
+      if (res.success && res.data) setSessions(res.data)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
     smeApi.getProfilePreferences().then((res) => {
       if (cancelled) return
       setPrefLoading(false)
@@ -89,6 +108,22 @@ export default function DashboardProfile() {
     })
     return () => { cancelled = true }
   }, [])
+
+  const handleRevokeSession = async (sessionId: string) => {
+    if (revokingId) return
+    setRevokingId(sessionId)
+    setSessionMessage(null)
+    const res = await securityApi.revokeSession(sessionId)
+    setRevokingId(null)
+    if (!res.success) {
+      setSessionMessage('⚠ ' + (res.message ?? 'Failed to revoke session.'))
+    } else {
+      if (res.data) setSessions(res.data)
+      setSessionMessage('Session revoked successfully.')
+    }
+    if (sessionMsgTimer.current) clearTimeout(sessionMsgTimer.current)
+    sessionMsgTimer.current = setTimeout(() => setSessionMessage(null), 4000)
+  }
 
   const handlePrefSave = async () => {
     if (!isPrefDirty || prefSaving) return
@@ -479,6 +514,62 @@ export default function DashboardProfile() {
                 <p className="dashboard-profile__section-description">
                   Manage your active sessions across different devices
                 </p>
+
+                {sessionMessage && (
+                  <p
+                    className={`dashboard-profile__security-message ${sessionMessage.startsWith('⚠') ? 'dashboard-profile__security-message--error' : 'dashboard-profile__security-message--success'}`}
+                    role={sessionMessage.startsWith('⚠') ? 'alert' : 'status'}
+                  >
+                    {sessionMessage}
+                  </p>
+                )}
+
+                {sessionsLoading ? (
+                  <div className="dashboard-profile__sessions-loading">
+                    <Loader2 size={18} className="dashboard-profile__pref-spinner" />
+                    <span>Loading sessions…</span>
+                  </div>
+                ) : (
+                  <div className="dashboard-profile__sessions-list">
+                    {sessions.map((session) => (
+                      <div
+                        key={session.sessionId}
+                        className={`dashboard-profile__session-item${session.isCurrent ? ' dashboard-profile__session-item--current' : ''}`}
+                      >
+                        <span className="dashboard-profile__session-icon">
+                          {session.device.toLowerCase().includes('iphone') || session.device.toLowerCase().includes('android')
+                            ? <Smartphone size={18} />
+                            : <Monitor size={18} />}
+                        </span>
+                        <div className="dashboard-profile__session-info">
+                          <div className="dashboard-profile__session-device">
+                            {session.device}
+                            {session.isCurrent && <span className="dashboard-profile__session-badge">Current</span>}
+                          </div>
+                          <div className="dashboard-profile__session-meta">
+                            {session.location} · {session.ip}
+                          </div>
+                          <div className="dashboard-profile__session-time">
+                            Last active: {new Date(session.lastActive).toLocaleString()}
+                          </div>
+                        </div>
+                        {!session.isCurrent && (
+                          <button
+                            type="button"
+                            className="dashboard-profile__session-revoke"
+                            onClick={() => handleRevokeSession(session.sessionId)}
+                            disabled={revokingId === session.sessionId}
+                            aria-label={`Revoke session on ${session.device}`}
+                          >
+                            {revokingId === session.sessionId
+                              ? <Loader2 size={15} className="dashboard-profile__pref-spinner" />
+                              : <Trash2 size={15} />}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             </div>
           )}
