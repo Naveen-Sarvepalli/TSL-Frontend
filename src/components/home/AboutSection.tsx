@@ -26,7 +26,7 @@ const cards = [
 
 export function AboutSection() {
   return (
-    <section className="bg-[#F5F5F5] pb-[92px] pt-[24px] font-sans lg:pb-[106px]" id="about">
+    <section className="bg-[#F5F5F5] pb-[64px] pt-[48px] font-sans lg:pt-[56px]" id="about">
       <Container className="max-w-[1440px]">
         <motion.div
           className="text-center"
@@ -35,12 +35,12 @@ export function AboutSection() {
           viewport={defaultViewport}
           variants={revealUp}
         >
-          <span className="inline-flex min-h-[38px] items-center gap-[12px] rounded-full border border-[rgba(13,27,42,0.1)] bg-[rgba(13,27,42,0.05)] px-[16px] font-sans text-[14px] font-semibold leading-[20px] tracking-[0px] text-center text-[#333333] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <span className="inline-flex min-h-[38px] items-center gap-[12px] rounded-full border border-[rgba(13,27,42,0.1)] bg-[rgba(13,27,42,0.05)] px-[16px] text-[14px] font-semibold leading-5 text-[#333] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <Target size={16} className="text-[#D4A437]" strokeWidth={2.2} />
             About The Startup Legal
           </span>
 
-          <h2 className="mx-auto mt-[53px] max-w-[980px] text-center font-display text-[32px] font-bold leading-[1.12] tracking-[0] text-[#333] md:text-[36px]">
+          <h2 className="mx-auto mt-[53px] max-w-[980px] text-center font-display text-[36px] font-bold leading-[1.12] tracking-[0] text-[#333]">
             Your Legal Partner, Not Just Your Lawyer
           </h2>
 
@@ -84,7 +84,7 @@ export function AboutSection() {
           ))}
         </motion.div>
 
-        <div className="mx-auto mt-[118px] h-[8px] w-[112px] rounded-full bg-[#D4A437]" />
+        <div className="mx-auto mt-[80px] h-[8px] w-[112px] rounded-full bg-[#D4A437]" />
       </Container>
     </section>
   )
