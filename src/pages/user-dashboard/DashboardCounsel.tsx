@@ -1,5 +1,5 @@
 import { BackButton } from '../../components/dashboard/BackButton'
-import { CheckCircle2, ChevronRight, CircleDot, DollarSign, FileText, MessageSquare, Scale, Send, Upload, X } from 'lucide-react'
+import { CheckCircle2, ChevronRight, CircleDot, DollarSign, FileText, MessageSquare, Scale, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { DashboardShell } from '../../components/dashboard/DashboardShell'
@@ -553,7 +553,7 @@ export default function DashboardCounsel() {
                 </label>
 
                 <button type="submit" className="dashboard-counsel__submit" disabled={isSubmitting || credits.creditsRemaining <= 0}>
-                  <Send size={18} />
+                  <MessageSquare size={18} />
                   {isSubmitting ? 'Submitting...' : 'Submit Request'}
                 </button>
               </form>
