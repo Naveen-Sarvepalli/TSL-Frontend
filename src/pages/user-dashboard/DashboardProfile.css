@@ -284,6 +284,12 @@
   line-height: 24px;
   outline: 0;
 }
+.dashboard-profile__input-wrap input:disabled {
+  color: #999999;
+  cursor: not-allowed;
+}
+
+
 
 .dashboard-profile__card > h2 {
   margin: 0 0 12px;
@@ -844,7 +850,7 @@
   padding: 0 24px;
   border-radius: 999px;
   border: none;
-  background: #dc2626;
+  background: #C9982A;
   font-size: 14px;
   font-weight: 600;
   color: #ffffff;
@@ -853,7 +859,7 @@
 }
 
 .dashboard-profile__dialog-confirm:hover:not(:disabled) {
-  background: #b91c1c;
+  background: #b8881f;
 }
 
 .dashboard-profile__dialog-confirm:disabled {
