@@ -23,8 +23,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DashboardShell } from '../../components/dashboard/DashboardShell'
 import { setPageMetadata } from '../../services/metadata'
-import { paymentApi } from '../../services/tslApi'
-import type { WizardAccess } from '../../services/tslApi'
+import { paymentApi, subscriptionApi } from '../../services/tslApi'
+import type { DocumentCatalogueBlueprint, WizardAccess } from '../../services/tslApi'
+import InsufficientBlueprintUnitsModal from './InsufficientBlueprintUnitsModal'
 import './Dashboard.css'
 import './DashboardWizards.css'
 
@@ -152,16 +153,26 @@ export default function DashboardWizards() {
     Object.fromEntries(wizardCards.map((wizard) => [wizard.title, 0])),
   )
   // Wizard access fetched from the server — null while loading
-  const [wizardAccess, setWizardAccess] = useState<WizardAccess | null>(() => {
+  const [, setWizardAccess] = useState<WizardAccess | null>(() => {
     try { return JSON.parse(localStorage.getItem(wizardAccessCacheKey) ?? 'null') as WizardAccess | null } catch { return null }
   })
 
+  const [remainingBlueprintUnits, setRemainingBlueprintUnits] = useState<number | null>(null)
+  const [catalogue, setCatalogue] = useState<DocumentCatalogueBlueprint[]>([])
+  const [insufficientUnits, setInsufficientUnits] = useState<{ title: string; required: number } | null>(null)
+  const [isUpgradeJourney, setIsUpgradeJourney] = useState(false)
   useEffect(() => {
     paymentApi.wizardAccess().then((res) => {
       if (res.success && res.data) {
         setWizardAccess(res.data)
         localStorage.setItem(wizardAccessCacheKey, JSON.stringify(res.data))
       }
+    })
+    subscriptionApi.get().then((res) => {
+      if (res.success && res.data) setRemainingBlueprintUnits(res.data.usage.runsRemaining)
+    })
+    subscriptionApi.blueprints().then((res) => {
+      if (res.success && res.data) setCatalogue(res.data)
     })
   }, [])
 
@@ -172,7 +183,6 @@ export default function DashboardWizards() {
 
   // Titles the user already has on their dashboard — normalised to lowercase
   // so 'Employment Offer Letter' and 'Employment Offer letter' both match.
-  const ownedTitles = new Set((wizardAccess?.selectedWizards ?? []).map((w) => w.title.toLowerCase()))
 
   const updateQuantity = (title: string, nextQuantity: number) => {
     setQuantities((current) => ({
@@ -181,13 +191,22 @@ export default function DashboardWizards() {
     }))
   }
 
+  const selectBlueprint = (title: string, nextQuantity: number) => {
+    const currentQuantity = quantities[title] ?? 0
+    if (nextQuantity > currentQuantity && !isUpgradeJourney && remainingBlueprintUnits !== null && remainingBlueprintUnits <= 0) {
+      const blueprint = catalogue.find((item) => item.name.toLowerCase() === title.toLowerCase())
+      setInsufficientUnits({ title, required: blueprint?.blueprintUnitWeight ?? 1 })
+      return
+    }
+    updateQuantity(title, nextQuantity)
+  }
+
   // Only newly selected wizards count (exclude already-owned ones)
   const selectedWizards = wizardCards
     .map((wizard) => ({ title: wizard.title, quantity: quantities[wizard.title] ?? 0 }))
     .filter((wizard) => wizard.quantity > 0)
   const totalItems = selectedWizards.reduce((total, wizard) => total + wizard.quantity, 0)
 
-  const remainingSlots = wizardAccess?.remainingWizards ?? 0
 
   const clearCart = () => {
     setQuantities(Object.fromEntries(wizardCards.map((wizard) => [wizard.title, 0])))
@@ -196,11 +215,9 @@ export default function DashboardWizards() {
 
   const viewSelectedWizardDetails = () => {
     localStorage.setItem(selectedWizardStorageKey, JSON.stringify(selectedWizards))
-    navigate('/dashboard/wizard-details', { state: { selectedWizards } })
+    navigate('/dashboard/wizard-details', { state: { selectedWizards, forceUpgrade: isUpgradeJourney } })
   }
 
-  const hasSub = Boolean(wizardAccess?.hasSubscription)
-  // newSelectionCount is used in DashboardWizardDetails for smart button logic — not needed here
 
   return (
     <DashboardShell activeSection="Wizards">
@@ -211,51 +228,30 @@ export default function DashboardWizards() {
             <WandSparkles size={18} />
           </span>
           <div>
-            <h1>Browse All Wizards</h1>
-            <p>Select a legal wizard to generate your document</p>
+            <h1>Browse All Blueprints</h1>
+            <p>Choose a Blueprint to prepare your legal document</p>
           </div>
 
-          {/* Slot indicator for existing subscribers */}
-          {hasSub && (
-            <div className="dashboard-wizards__slot-info">
-              <Zap size={14} />
-              <span>
-                <strong>{ownedTitles.size}</strong> / <strong>{wizardAccess?.wizardLimit ?? 0}</strong> active wizards
-                &nbsp;·&nbsp;
-                <strong>{remainingSlots}</strong> slot{remainingSlots !== 1 ? 's' : ''} remaining
-              </span>
-            </div>
-          )}
         </header>
 
         <section className="dashboard-wizards__grid" aria-label="Available legal wizards">
           {wizardCards.map(({ title, description, time, runs, audience, included, icon: Icon, popular }) => {
             const quantity = quantities[title] ?? 0
             const isSelected = quantity > 0
-            const isOwned = ownedTitles.has(title.toLowerCase())
 
             return (
               <article
                 className={[
                   'dashboard-wizards__card',
                   isSelected ? 'dashboard-wizards__card--selected' : '',
-                  isOwned ? 'dashboard-wizards__card--owned' : '',
                 ].filter(Boolean).join(' ')}
                 key={title}
               >
                 {popular && (
                   <div className="dashboard-wizards__popular">
-                    {isSelected && !isOwned && <span>{quantity}</span>}
+                    {isSelected && <span>{quantity}</span>}
                     <Zap size={12} />
                     Popular
-                  </div>
-                )}
-
-                {/* "Added" badge for already-owned wizards */}
-                {isOwned && (
-                  <div className="dashboard-wizards__owned-badge">
-                    <CheckCircle2 size={12} />
-                    Added
                   </div>
                 )}
 
@@ -281,7 +277,7 @@ export default function DashboardWizards() {
                   <div>
                     <dt>
                       <Zap size={14} />
-                      Runs:
+                      Blueprint Units:
                     </dt>
                     <dd>{runs}</dd>
                   </div>
@@ -303,18 +299,7 @@ export default function DashboardWizards() {
                   </div>
                 </div>
 
-                {/* Already-owned: show disabled "In Dashboard" button */}
-                {isOwned ? (
-                  <button
-                    type="button"
-                    className="dashboard-wizards__select dashboard-wizards__select--owned"
-                    disabled
-                    aria-label={`${title} is already in your dashboard`}
-                  >
-                    <CheckCircle2 size={18} />
-                    In Dashboard
-                  </button>
-                ) : isSelected ? (
+                {isSelected ? (
                   <div className="dashboard-wizards__stepper" aria-label={`${title} selected quantity`}>
                     <button
                       type="button"
@@ -329,7 +314,7 @@ export default function DashboardWizards() {
                       type="button"
                       className="dashboard-wizards__stepper-button dashboard-wizards__stepper-button--plus"
                       aria-label={`Add one ${title}`}
-                      onClick={() => updateQuantity(title, quantity + 1)}
+                      onClick={() => selectBlueprint(title, quantity + 1)}
                     >
                       <Plus size={18} />
                     </button>
@@ -338,7 +323,7 @@ export default function DashboardWizards() {
                   <button
                     type="button"
                     className="dashboard-wizards__select"
-                    onClick={() => updateQuantity(title, 1)}
+                    onClick={() => selectBlueprint(title, 1)}
                   >
                     <CheckCircle2 size={18} />
                     Select
@@ -392,6 +377,21 @@ export default function DashboardWizards() {
           </section>
         )}
       </div>
+        {insufficientUnits && (
+          <InsufficientBlueprintUnitsModal
+            blueprintName={insufficientUnits.title}
+            remaining={0}
+            required={insufficientUnits.required}
+            pricePerUnit={250}
+            onClose={() => setInsufficientUnits(null)}
+            onUpgrade={() => {
+              const title = insufficientUnits.title
+              setInsufficientUnits(null)
+              setIsUpgradeJourney(true)
+              updateQuantity(title, 1)
+            }}
+          />
+        )}
     </DashboardShell>
   )
 }
