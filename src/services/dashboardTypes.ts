@@ -151,6 +151,8 @@ export interface SubscriptionData {
     last4: string
   } | null
   pendingDowngrade: PendingDowngrade | null
+  counselCreditsTotal?: number
+  counselCreditsRemaining?: number
 }
 
 export interface ProratedUpgradePreview {
@@ -162,7 +164,9 @@ export interface ProratedUpgradePreview {
   daysInCycle: number
   creditUnusedTime: number   // negative value = credit
   proratedNewCharge: number
+  tax: number
   totalDueToday: number
+  isFullMonthlyCharge: boolean
   nextBillingDate: string
   paymentMethod: {
     brand: string

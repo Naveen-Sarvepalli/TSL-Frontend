@@ -9,6 +9,7 @@
 import { Loader2, X } from 'lucide-react'
 import type { ProratedUpgradePreview, SubscriptionPlan } from '../../../services/dashboardTypes'
 import { formatDate } from '../../../services/dashboardTypes'
+import './ComparePlansModal.css'
 
 interface Props {
   plan: SubscriptionPlan
@@ -48,16 +49,27 @@ export function UpgradeConfirmModal({
         aria-labelledby="upgrade-confirm-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
-          className="bs-modal-close"
-          aria-label="Close upgrade confirmation"
-          onClick={onCancel}
-        >
-          <X size={20} />
-        </button>
+        <header className="bs-confirm-modal__header">
+          <div>
+            <h2 id="upgrade-confirm-title">Confirm your upgrade</h2>
+            {preview && !previewLoading && (
+              <p>
+                You're switching from {preview.currentPlanName} to {preview.newPlanName}.
+                This takes effect immediately.
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            className="bs-confirm-modal__header-close"
+            aria-label="Close upgrade confirmation"
+            onClick={onCancel}
+          >
+            <X size={20} />
+          </button>
+        </header>
 
-        <h2 id="upgrade-confirm-title">Confirm your upgrade</h2>
+        <div className="bs-confirm-modal__body">
 
         {previewLoading && (
           <div className="bs-modal-loading">
@@ -72,11 +84,6 @@ export function UpgradeConfirmModal({
 
         {preview && !previewLoading && (
           <>
-            <p className="bs-confirm-modal__subtitle">
-              You're switching from {preview.currentPlanName} to {preview.newPlanName}.
-              This takes effect immediately.
-            </p>
-
             <dl className="bs-confirm-modal__breakdown">
               <div>
                 <dt>Current plan</dt>
@@ -87,16 +94,20 @@ export function UpgradeConfirmModal({
                 <dd>{preview.newPlanName} — R{preview.newPrice.toLocaleString('en-ZA')}/mo</dd>
               </div>
               <div>
-                <dt>Days remaining</dt>
-                <dd>{preview.daysRemaining} of {preview.daysInCycle} days</dd>
+                <dt>{preview.isFullMonthlyCharge ? 'Billing period' : 'Days remaining'}</dt>
+                <dd>{preview.isFullMonthlyCharge ? '30 days from today' : `${preview.daysRemaining} of ${preview.daysInCycle} days`}</dd>
               </div>
               <div>
                 <dt>Credit, unused time</dt>
                 <dd className="bs-confirm-modal__credit">− {fmt(preview.creditUnusedTime)}</dd>
               </div>
               <div>
-                <dt>Prorated {preview.newPlanName} charge</dt>
+                <dt>{preview.isFullMonthlyCharge ? `Full monthly ${preview.newPlanName} charge` : `Prorated ${preview.newPlanName} charge`}</dt>
                 <dd>{fmt(preview.proratedNewCharge)}</dd>
+              </div>
+              <div>
+                <dt>VAT (15%)</dt>
+                <dd>{fmt(preview.tax)}</dd>
               </div>
             </dl>
 
@@ -139,6 +150,7 @@ export function UpgradeConfirmModal({
                 ? `Confirm & pay ${fmt(preview.totalDueToday)}`
                 : `Upgrade to ${plan.name}`}
           </button>
+        </div>
         </div>
       </section>
     </div>

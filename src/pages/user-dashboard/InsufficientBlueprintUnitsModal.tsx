@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, X, Zap, ArrowUpCircle } from 'lucide-react'
+import { X, Zap, ArrowUpCircle } from 'lucide-react'
 import type { BlueprintTopUpLocationState } from './BlueprintTopUpPayment'
 import './InsufficientBlueprintUnitsModal.css'
 
@@ -9,6 +9,7 @@ type Props = {
   remaining: number
   required: number
   pricePerUnit: number
+  iconName?: string
   onClose: () => void
   onUpgrade: () => void
 }
@@ -18,6 +19,7 @@ export default function InsufficientBlueprintUnitsModal({
   remaining,
   required,
   pricePerUnit,
+  iconName,
   onClose,
   onUpgrade,
 }: Props) {
@@ -32,7 +34,7 @@ export default function InsufficientBlueprintUnitsModal({
 
   const handleTopUp = () => {
     onClose()
-    const state: BlueprintTopUpLocationState = { units: quantity, blueprintName, pricePerUnit }
+    const state: BlueprintTopUpLocationState = { units: quantity, blueprintName, pricePerUnit, iconName }
     navigate('/dashboard/blueprint-topup', { state })
   }
 
@@ -48,8 +50,10 @@ export default function InsufficientBlueprintUnitsModal({
 
         {/* Header */}
         <div className="ibum__header">
-          <span className="ibum__header-icon"><AlertTriangle size={18} /></span>
-          <h2 className="ibum__title" id="ibum-title">Insufficient Blueprint Units</h2>
+          <div className="ibum__header-copy">
+            <h2 className="ibum__title" id="ibum-title">Insufficient Blueprint Units</h2>
+            <span className="ibum__subtitle">Purchase units or upgrade your subscription</span>
+          </div>
           <button type="button" className="ibum__close" onClick={onClose} aria-label="Close dialog">
             <X size={18} />
           </button>

@@ -128,11 +128,17 @@ const wizardDetails: Record<string, { note: string; icon: LucideIcon }> = {
 const blueprintIdByWizardTitle: Record<string, string> = {
   'Loan Agreement': 'moa',
   'Non-Disclosure Agreement (NDA)': 'nda',
+  'Board Resolution': 'board-resolution',
   'Employment Offer Letter': 'employment-offer-letter',
   'Employment Offer letter': 'employment-offer-letter',
+  'Privacy & Cookies Policy': 'privacy-policy',
   'Founder Agreement': 'shareholders-agreement',
   'Privacy Policy': 'privacy-policy',
   'Privacy Policy (POPIA Compliant)': 'privacy-policy',
+  'Memorandum of Agreement (MOA)': 'moa',
+  'Software Development Agreement': 'software-development-agreement',
+  'Employment Contract Pack': 'employment-pack',
+  'Company Registration': 'company-registration',
   'Shareholder Resolutions': 'board-resolution',
   'Service Agreement': 'contractor-agreement',
   'Company Registration Package': 'company-registration',
@@ -141,6 +147,7 @@ const blueprintIdByWizardTitle: Record<string, string> = {
   'Commercial Lease Agreement': 'contractor-agreement',
   'Sale of Goods Agreement': 'contractor-agreement',
 }
+
 type PlanKey = 'Launchpad' | 'Operator' | 'Boardroom'
 
 function recommendedPlanForBlueprintUnits(units: number): PlanKey {
@@ -325,8 +332,30 @@ export default function DashboardWizardDetails() {
   const [isPaymentView, setIsPaymentView] = useState(() => Boolean((location.state as WizardLocationState | null)?.showPayment))
   const [showDashboardView, setShowDashboardView] = useState(false)
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false)
-  const [activePlan, setActivePlan] = useState<PlanKey>('Launchpad')
-  const [accountPlan, setAccountPlan] = useState<PlanKey | null>(null)
+  const [activePlan, setActivePlan] = useState<PlanKey>(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem(wizardAccessCacheKey) ?? 'null') as { plan?: string; hasSubscription?: boolean } | null
+      if (cached?.hasSubscription && cached.plan) {
+        const p = cached.plan.toLowerCase()
+        if (p === 'launchpad') return 'Launchpad'
+        if (p === 'operator') return 'Operator'
+        if (p === 'boardroom') return 'Boardroom'
+      }
+    } catch { /* ignore */ }
+    return 'Launchpad'
+  })
+  const [accountPlan, setAccountPlan] = useState<PlanKey | null>(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem(wizardAccessCacheKey) ?? 'null') as { plan?: string; hasSubscription?: boolean } | null
+      if (cached?.hasSubscription && cached.plan) {
+        const p = cached.plan.toLowerCase()
+        if (p === 'launchpad') return 'Launchpad'
+        if (p === 'operator') return 'Operator'
+        if (p === 'boardroom') return 'Boardroom'
+      }
+    } catch { /* ignore */ }
+    return null
+  })
   const [isPlanManuallySelected, setIsPlanManuallySelected] = useState(false)
   const [catalogue, setCatalogue] = useState<DocumentCatalogueBlueprint[]>([])
   const [wizardAccess, setWizardAccess] = useState<WizardAccess | null>(() => {
@@ -335,7 +364,7 @@ export default function DashboardWizardDetails() {
   const [isWizardAccessLoading, setIsWizardAccessLoading] = useState(true)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | ''>('')
   const [paymentMessage, setPaymentMessage] = useState<PaymentMessage | null>(null)
-  const [insufficientUnits, setInsufficientUnits] = useState<{ remaining: number; required: number; blueprintName: string } | null>(null)
+  const [insufficientUnits, setInsufficientUnits] = useState<{ remaining: number; required: number; blueprintName: string; iconName?: string } | null>(null)
   const [wizardAccessWarning, setWizardAccessWarning] = useState<string | null>(null)
   const [remainingBlueprintUnits, setRemainingBlueprintUnits] = useState<number | null>(null)
   const [isInitializingPayment, setIsInitializingPayment] = useState(false)
@@ -392,7 +421,7 @@ export default function DashboardWizardDetails() {
     }))
 
   const totalWizards = selectedWizards.reduce((total, wizard) => total + wizard.quantity, 0)
-  const wizardLabel = totalWizards === 1 ? 'wizard' : 'wizards'
+  const wizardLabel = totalWizards === 1 ? 'Blueprint' : 'Blueprints'
   const totalBlueprintUnits = selectedWizards.reduce((total, wizard) => {
     const blueprintId = blueprintIdByWizardTitle[wizard.title]
     const blueprint = catalogue.find((item) => item.blueprintId === blueprintId)
@@ -401,6 +430,7 @@ export default function DashboardWizardDetails() {
   const recommendedPlan = recommendedPlanForBlueprintUnits(totalBlueprintUnits)
 
   useEffect(() => {
+    let hasLoadedAuthoritativeSubscription = false
     paymentApi.wizardAccess().then((response) => {
       const planId = response.success && response.data?.hasSubscription ? response.data.plan?.toLowerCase() : ''
       const plan = planId === 'launchpad' ? 'Launchpad' : planId === 'boardroom' ? 'Boardroom' : planId === 'operator' ? 'Operator' : null
@@ -408,13 +438,19 @@ export default function DashboardWizardDetails() {
         setWizardAccess(response.data)
         localStorage.setItem(wizardAccessCacheKey, JSON.stringify(response.data))
       }
-      if (plan) { setAccountPlan(plan); setActivePlan(plan) }
+      if (plan && !hasLoadedAuthoritativeSubscription) { setAccountPlan(plan); setActivePlan(plan) }
     }).finally(() => setIsWizardAccessLoading(false))
     subscriptionApi.blueprints().then((response) => {
       if (response.success && response.data) setCatalogue(response.data)
     })
     subscriptionApi.get().then((response) => {
-      if (response.success && response.data) setRemainingBlueprintUnits(response.data.usage.runsRemaining)
+      if (response.success && response.data) {
+        setRemainingBlueprintUnits(response.data.usage.runsRemaining)
+        hasLoadedAuthoritativeSubscription = true
+        const planId = response.data.planId.toLowerCase()
+        const plan = planId === 'launchpad' ? 'Launchpad' : planId === 'boardroom' ? 'Boardroom' : planId === 'operator' ? 'Operator' : null
+        if (plan) { setAccountPlan(plan); setActivePlan(plan) }
+      }
     })
   }, [])
 
@@ -424,7 +460,7 @@ export default function DashboardWizardDetails() {
   // Document Catalogue unit cost. Paid subscriptions and manual tab choices
   // are intentionally never overridden.
   useEffect(() => {
-    if ((!accountPlan || upgradeJourney) && !isPlanManuallySelected && totalBlueprintUnits > 0) {
+    if (!accountPlan && !isPlanManuallySelected && totalBlueprintUnits > 0) {
       setActivePlan(recommendedPlan)
     }
   }, [accountPlan, upgradeJourney, isPlanManuallySelected, recommendedPlan, totalBlueprintUnits])
@@ -445,10 +481,23 @@ export default function DashboardWizardDetails() {
       ? response.data.usage.runsRemaining
       : remainingBlueprintUnits
     if (remaining !== null && remaining <= 0) {
+      const bpName = selectedWizards.length === 1 ? selectedWizards[0].title : 'Selected Blueprints'
+      const ICON_MAP: Record<string, string> = {
+        'Non-Disclosure Agreement (NDA)': 'Shield',
+        'Board Resolution': 'Briefcase',
+        'Employment Offer Letter': 'UsersRound',
+        'Privacy & Cookies Policy': 'Shield',
+        'Memorandum of Agreement (MOA)': 'FileText',
+        'Software Development Agreement': 'Code2',
+        'Employment Contract Pack': 'UsersRound',
+        'Company Registration': 'Building2',
+        'Shareholders Agreement': 'UsersRound',
+      }
       setInsufficientUnits({
         remaining,
         required: totalBlueprintUnits || 1,
-        blueprintName: selectedWizards.length === 1 ? selectedWizards[0].title : 'Selected Blueprints',
+        blueprintName: bpName,
+        iconName: ICON_MAP[bpName] ?? 'Shield',
       })
       return false
     }
@@ -468,8 +517,8 @@ export default function DashboardWizardDetails() {
     setWizardAccess(response.data)
     localStorage.setItem(wizardAccessCacheKey, JSON.stringify(response.data))
     localStorage.setItem('tsl-dashboard-view-mode', 'returning')
-    // Pass the count so the dashboard can show a success toast
-    navigate('/dashboard', { state: { addedCount: totalWizards } })
+    // Pass the count (for the toast) and the exact list (for the New-tab queue bump)
+    navigate('/dashboard', { state: { addedCount: totalWizards, addedWizards: selectedWizards.map(({ title, quantity }) => ({ title, quantity })) } })
   }
 
   const OverviewIcon = selectedWizards[0]?.icon ?? Shield
@@ -538,7 +587,7 @@ export default function DashboardWizardDetails() {
         ...(wizardAccess?.selectedWizards ?? []),
         ...selectedWizards
           .filter(({ title }) => !existingTitles.has(title))
-          .map(({ title }) => ({ title, quantity: 1 })),
+          .map(({ title, quantity }) => ({ title, quantity })),
       ]
       const access: WizardAccess = {
         hasSubscription: true,
@@ -551,7 +600,11 @@ export default function DashboardWizardDetails() {
       // the paid dashboard correct while a browser navigation is in progress.
       localStorage.setItem(wizardAccessCacheKey, JSON.stringify(access))
       localStorage.setItem('tsl-dashboard-payment-complete', 'true')
-      localStorage.setItem('tsl-dashboard-view-mode', 'initial')
+      // Land directly on the tabbed dashboard (New/In Progress/Completed) so the
+      // selected wizard is immediately visible in the New tab.
+      localStorage.setItem('tsl-dashboard-view-mode', 'returning')
+      // Clear any stale queue so the dashboard seeds it from the purchased quantities.
+      localStorage.removeItem('tsl-dashboard-queue')
       setPaymentMessage({
         tone: 'success',
         text: 'Payment successful. Redirecting to your dashboard...',
@@ -574,7 +627,7 @@ export default function DashboardWizardDetails() {
 
   if (showDashboardView) {
     return (
-      <DashboardShell activeSection="Wizards">
+      <DashboardShell activeSection="Blueprints">
         <main className="dashboard-wizard-details dashboard-wizard-details--success">
           <header className="user-dashboard__hero">
             <div>
@@ -582,7 +635,7 @@ export default function DashboardWizardDetails() {
               <p>
                 Track your legal workflows and completed documents across all your business operations.
               </p>
-              <button type="button" className="user-dashboard__gold-button" onClick={() => navigate('/dashboard/wizards')}>
+              <button type="button" className="user-dashboard__gold-button" onClick={() => navigate('/dashboard/blueprints')}>
                 Browse Wizards
                 <ArrowRight size={18} />
               </button>
@@ -663,85 +716,46 @@ export default function DashboardWizardDetails() {
             </div>
 
             <div className="dashboard-wizard-details__workflow-list">
-              <article className="dashboard-wizard-details__workflow-item">
-                <span className="dashboard-wizard-details__workflow-icon">i</span>
-                <div className="dashboard-wizard-details__workflow-content">
-                  <h3>Non-Disclosure Agreement (NDA)</h3>
-                  <p><strong>Note:</strong> Need NDAs for investor meetings and contractor agreements</p>
-                </div>
-                <div className="dashboard-wizard-details__workflow-meta">
-                  <span className="dashboard-wizard-details__workflow-badge">Wizards</span>
-                  <strong>3 Items</strong>
-                </div>
-                <button type="button" className="dashboard-wizard-details__workflow-start">
-                  <Play size={18} />
-                  Start
-                </button>
-              </article>
-
-              <article className="dashboard-wizard-details__workflow-item">
-                <span className="dashboard-wizard-details__workflow-icon">i</span>
-                <div className="dashboard-wizard-details__workflow-content">
-                  <h3>Employment Offer letter</h3>
-                  <p><strong>Note:</strong> Hiring our first developer next month</p>
-                </div>
-                <div className="dashboard-wizard-details__workflow-meta">
-                  <span className="dashboard-wizard-details__workflow-badge">Wizards</span>
-                  <strong>3 Item</strong>
-                </div>
-                <button type="button" className="dashboard-wizard-details__workflow-start">
-                  <Play size={18} />
-                  Start
-                </button>
-              </article>
-
-              <article className="dashboard-wizard-details__workflow-item">
-                <span className="dashboard-wizard-details__workflow-icon">i</span>
-                <div className="dashboard-wizard-details__workflow-content">
-                  <h3>Privacy Policy</h3>
-                  <p><strong>Note:</strong> Required for our web app launch</p>
-                </div>
-                <div className="dashboard-wizard-details__workflow-meta">
-                  <span className="dashboard-wizard-details__workflow-badge">Wizards</span>
-                  <strong>2 Item</strong>
-                </div>
-                <button type="button" className="dashboard-wizard-details__workflow-start">
-                  <Play size={18} />
-                  Start
-                </button>
-              </article>
-
-              <article className="dashboard-wizard-details__workflow-item">
-                <span className="dashboard-wizard-details__workflow-icon">i</span>
-                <div className="dashboard-wizard-details__workflow-content">
-                  <h3>Founder Agreement</h3>
-                  <p><strong>Note:</strong> Setting up co-founder equity split</p>
-                </div>
-                <div className="dashboard-wizard-details__workflow-meta">
-                  <span className="dashboard-wizard-details__workflow-badge">Wizards</span>
-                  <strong>2 Item</strong>
-                </div>
-                <button type="button" className="dashboard-wizard-details__workflow-start">
-                  <Play size={18} />
-                  Start
-                </button>
-              </article>
-
-              <article className="dashboard-wizard-details__workflow-item">
-                <span className="dashboard-wizard-details__workflow-icon">i</span>
-                <div className="dashboard-wizard-details__workflow-content">
-                  <h3>Service Agreement</h3>
-                  <p><strong>Note:</strong> Multiple client contracts needed</p>
-                </div>
-                <div className="dashboard-wizard-details__workflow-meta">
-                  <span className="dashboard-wizard-details__workflow-badge">Wizards</span>
-                  <strong>3 Item</strong>
-                </div>
-                <button type="button" className="dashboard-wizard-details__workflow-start">
-                  <Play size={18} />
-                  Start
-                </button>
-              </article>
+              {[
+                { title: 'Non-Disclosure Agreement (NDA)', note: 'Need NDAs for investor meetings and contractor agreements', blueprintId: 'nda' },
+                { title: 'Employment Offer Letter', note: 'Hiring our first developer next month', blueprintId: 'employment-offer-letter' },
+                { title: 'Privacy & Cookies Policy', note: 'Required for our web app launch', blueprintId: 'privacy-policy' },
+                { title: 'Founder Agreement', note: 'Setting up co-founder equity split', blueprintId: 'shareholders-agreement' },
+                { title: 'Service Agreement', note: 'Multiple client contracts needed', blueprintId: 'contractor-agreement' },
+              ].map(({ title, note, blueprintId }) => {
+                const bp = catalogue.find((item) => item.blueprintId === blueprintId)
+                const unitWeight = bp?.blueprintUnitWeight
+                const costLabel = unitWeight === undefined ? '—' : `${unitWeight} ${unitWeight === 1 ? 'Credit' : 'Credits'} each`
+                return (
+                  <article className="dashboard-wizard-details__workflow-item" key={title}>
+                    <span className="dashboard-wizard-details__workflow-icon">i</span>
+                    <div className="dashboard-wizard-details__workflow-content">
+                      <h3>{title}</h3>
+                      <p><strong>Note:</strong> {note}</p>
+                    </div>
+                    <div className="dashboard-wizard-details__workflow-divider" aria-hidden="true" />
+                    <div className="dashboard-wizard-details__workflow-meta">
+                      <span className="dashboard-wizard-details__workflow-badge">
+                        <FileText size={14} />
+                        Blueprints
+                      </span>
+                      <strong>1 selected</strong>
+                    </div>
+                    <div className="dashboard-wizard-details__workflow-divider" aria-hidden="true" />
+                    <div className="dashboard-wizard-details__workflow-meta">
+                      <span className="dashboard-wizard-details__workflow-badge">
+                        <Zap size={14} style={{ color: '#c79a3b' }} />
+                        Unit cost
+                      </span>
+                      <strong>{costLabel}</strong>
+                    </div>
+                    <button type="button" className="dashboard-wizard-details__workflow-start">
+                      <Play size={18} />
+                      Start
+                    </button>
+                  </article>
+                )
+              })}
             </div>
           </section>
         </main>
@@ -751,7 +765,7 @@ export default function DashboardWizardDetails() {
 
   if (isPaymentView) {
     return (
-      <DashboardShell activeSection="Wizards">
+      <DashboardShell activeSection="Blueprints">
         <main className="dashboard-wizard-details dashboard-wizard-details--payment">
           <button
             type="button"
@@ -825,19 +839,29 @@ export default function DashboardWizardDetails() {
   }
 
   return (
-    <DashboardShell activeSection="Wizards">
+    <DashboardShell activeSection="Blueprints">
       <main className="dashboard-wizard-details">
         <section className="dashboard-wizard-details__page-head">
           <BackButton to="/dashboard" label="Back to Dashboard" />
-          <h1>Browse All Wizards</h1>
-          <p>Select a legal wizard to generate your document</p>
+          <div className="dashboard-wizard-details__page-head-copy">
+            <h1>Browse All Blueprints</h1>
+            <p>Select a legal blueprint to generate your document</p>
+          </div>
+          {wizardAccess?.hasSubscription && remainingBlueprintUnits !== null && (
+            <div className="dashboard-wizards__credits-badge">
+              <Zap size={18} style={{ color: '#cf9b2f' }} />
+              <span>
+                <strong>{remainingBlueprintUnits}</strong> Credits Remaining
+              </span>
+            </div>
+          )}
         </section>
 
         <div className="dashboard-wizard-details__backbar">
           <button
             type="button"
             className="dashboard-wizard-details__back"
-            onClick={() => navigate('/dashboard/wizards')}
+            onClick={() => navigate('/dashboard/blueprints')}
           >
             <ArrowLeft size={18} />
             Back to Wizards
@@ -849,7 +873,7 @@ export default function DashboardWizardDetails() {
             <OverviewIcon size={34} />
           </span>
           <div>
-            <h1>Wizard Details &amp; Overview</h1>
+            <h1>Blueprints Details &amp; Overview</h1>
             <p>Everything you need to know before starting this legal workflow</p>
           </div>
           <button
@@ -876,11 +900,11 @@ export default function DashboardWizardDetails() {
                   <WandSparkles size={16} />
                   Selection
                 </span>
-                <h1>Selected Wizards</h1>
+                <h1>Blueprints Wizards</h1>
               </div>
               <span className="dashboard-wizard-details__count">
                 <ShoppingCart size={16} />
-                {totalWizards}{wizardLabel}
+                {totalWizards} {wizardLabel}
               </span>
             </div>
 
@@ -918,7 +942,7 @@ export default function DashboardWizardDetails() {
             ) : (
               <div className="dashboard-wizard-details__empty">
                 <p>No wizards selected yet.</p>
-                <button type="button" onClick={() => navigate('/dashboard/wizards')}>
+                <button type="button" onClick={() => navigate('/dashboard/blueprints')}>
                   Browse Wizards
                 </button>
               </div>
@@ -928,7 +952,7 @@ export default function DashboardWizardDetails() {
           <section className="dashboard-wizard-details__panel dashboard-wizard-details__pricing">
             <div className="dashboard-wizard-details__section-heading dashboard-wizard-details__pricing-heading">
               <div>
-                <h2>Pricing for This Wizard</h2>
+                <h2>Pricing for This Blueprint</h2>
               </div>
               <div className="dashboard-wizard-details__tabs" aria-label="Pricing plans">
                 {(['Launchpad', 'Operator', 'Boardroom'] as PlanKey[]).map((plan) => {
@@ -961,6 +985,9 @@ export default function DashboardWizardDetails() {
                       <h3>
                         <PlanIcon size={20} className="dashboard-wizard-details__plan-title-icon" />
                         {plan.title}
+                        {accountPlan === activePlan && (
+                          <span className="dashboard-wizard-details__plan-active-badge">Active</span>
+                        )}
                       </h3>
                       <p>{plan.description}</p>
                     </div>
@@ -1150,6 +1177,7 @@ export default function DashboardWizardDetails() {
             remaining={insufficientUnits.remaining}
             required={insufficientUnits.required}
             pricePerUnit={250}
+            iconName={insufficientUnits.iconName}
             onClose={() => setInsufficientUnits(null)}
             onUpgrade={() => { setInsufficientUnits(null); setIsPaymentView(true) }}
           />

@@ -2,6 +2,7 @@ import { BackButton } from '../../components/dashboard/BackButton'
 import {
   ArrowRight,
   BookOpen,
+  CheckCircle2,
   CircleAlert,
   FileText,
   Shield,
@@ -11,15 +12,23 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { formatDate } from '../../services/dashboardTypes'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import { DashboardShell } from '../../components/dashboard/DashboardShell'
 import { setPageMetadata } from '../../services/metadata'
-import { API_BASE_URL, documentsApi, playbookApi } from '../../services/tslApi'
+import { API_BASE_URL, documentsApi, playbookApi, paymentApi } from '../../services/tslApi'
+import type { WizardAccess } from '../../services/tslApi'
+import { openPaystackCheckout } from '../../services/paystackClient'
+import { useBillingSubscription } from '../../hooks/useBillingSubscription'
+import { UpgradePlansModal } from './billing/UpgradePlansModal'
+import { UpgradeConfirmModal } from './billing/UpgradeConfirmModal'
 import './Dashboard.css'
 import './DashboardPlaybooks.css'
+
+const wizardAccessCacheKey = 'tsl-wizard-access-cache'
 
 // Configure the PDF.js worker — use CDN to avoid MIME type issues on servers
 // that serve .mjs files as application/octet-stream instead of text/javascript.
@@ -385,6 +394,36 @@ export default function DashboardPlaybooks() {
   const [sections, setSections] = useState<PlaybookSection[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [upgradePayError, setUpgradePayError] = useState<string | null>(null)
+  const upgradePayFn = useCallback(async (amountZAR: number, planName: string): Promise<string | null> => {
+    setUpgradePayError(null)
+    const checkoutResult = await openPaystackCheckout({
+      amount: amountZAR, currency: 'ZAR',
+      email: (() => { try { return (JSON.parse(localStorage.getItem('tsl-auth-user') ?? '{}') as { email?: string }).email || 'user@example.com' } catch { return 'user@example.com' } })(),
+      plan: planName.toLowerCase(), paymentMethod: 'card', selectedWizards: [], totalWizards: 0,
+    })
+    if (checkoutResult.status === 'cancelled') return null
+    if (checkoutResult.status === 'failed') { setUpgradePayError(checkoutResult.message || 'Payment failed.'); return null }
+    const verifyRes = await paymentApi.verifyPaystack({ reference: checkoutResult.reference, type: 'subscription-upgrade' })
+    if (!verifyRes.success || verifyRes.data?.status !== 'success') { setUpgradePayError(verifyRes.message || 'Payment could not be verified.'); return null }
+    return checkoutResult.reference
+  }, [])
+
+  const {
+    plans, plansLoading, plansError,
+    selectedPlan, upgradePreview, previewLoading, previewError,
+    actionLoading, actionError, activeModal, upgradeResult,
+    openUpgradePlans, selectPlan, confirmUpgrade, cancelUpgradeConfirm, closeModal,
+  } = useBillingSubscription(upgradePayFn)
+
+  // Read subscription status from cache — same pattern as Dashboard.tsx
+  const hasSubscription = (() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem(wizardAccessCacheKey) ?? 'null') as WizardAccess | null
+      return Boolean(cached?.hasSubscription)
+    } catch { return false }
+  })()
+
   setPageMetadata('Playbooks', 'Browse guided legal playbooks for common business workflows.')
 
   useEffect(() => {
@@ -419,6 +458,13 @@ export default function DashboardPlaybooks() {
         </header>
 
         <div className="dashboard-playbooks__content">
+          {upgradeResult && (
+            <div className="tsl-upgrade-success-banner" role="status" aria-live="polite">
+              <CheckCircle2 size={16} />
+              You're now on the <strong>{upgradeResult.planName} plan</strong> — effective today, {formatDate(upgradeResult.paidAt)}
+            </div>
+          )}
+
           <div className="dashboard-playbooks__info-banner">
             <span className="dashboard-playbooks__info-banner-icon" aria-hidden="true">
               <CircleAlert size={18} />
@@ -467,7 +513,7 @@ export default function DashboardPlaybooks() {
                       <div className="dashboard-playbooks__related">
                         <h4>
                           <WandSparkles size={14} />
-                          Related Wizards
+                          Related Blueprints
                         </h4>
                         <ul>
                           {wizards.map((wizard) => (
@@ -479,7 +525,9 @@ export default function DashboardPlaybooks() {
                       <button
                         type="button"
                         className="dashboard-playbooks__button"
-                        onClick={() => setSelectedPlaybook(card)}
+                        onClick={() => {
+                          if (hasSubscription) { setSelectedPlaybook(card) } else { void openUpgradePlans() }
+                        }}
                       >
                         Read Playbook
                         <ArrowRight size={18} />
@@ -500,6 +548,30 @@ export default function DashboardPlaybooks() {
         />
       )}
 
+      {activeModal === 'upgrade-plans' && (
+        <UpgradePlansModal
+          currentPlanId="free"
+          plans={plans}
+          plansLoading={plansLoading}
+          plansError={plansError}
+          onSelectUpgrade={(plan) => void selectPlan(plan, 'upgrade')}
+          onSelectDowngrade={(plan) => void selectPlan(plan, 'downgrade')}
+          onClose={closeModal}
+        />
+      )}
+
+      {activeModal === 'upgrade-confirm' && selectedPlan && (
+        <UpgradeConfirmModal
+          plan={selectedPlan}
+          preview={upgradePreview}
+          previewLoading={previewLoading}
+          previewError={previewError}
+          actionLoading={actionLoading}
+          actionError={upgradePayError ?? actionError}
+          onConfirm={() => void confirmUpgrade()}
+          onCancel={cancelUpgradeConfirm}
+        />
+      )}
     </DashboardShell>
   )
 }

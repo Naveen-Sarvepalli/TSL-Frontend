@@ -373,19 +373,24 @@ export default function DashboardSettings() {
   })()
 
   // ── Derived display values ────────────────────────────────────────────────
-  const planName        = subscription?.planName  ?? '—'
-  const planTagline     = subscription?.tagline   ?? ''
-  const planPrice       = hasSubscription ? (subscription?.price     ?? 0) : 0
-  const wizardRuns      = hasSubscription ? (subscription?.wizardRuns ?? 0) : 0
-  const teamMembers     = hasSubscription ? (subscription?.teamMembers ?? 0) : 0
-  const runsUsed        = hasSubscription ? (subscription?.usage.runsUsed      ?? 0) : 0
-  const runsTotal       = hasSubscription ? (subscription?.usage.runsTotal     ?? 0) : 0
-  const runsRemaining   = hasSubscription ? (subscription?.usage.runsRemaining ?? 0) : 0
-  const nextBillingDate = hasSubscription ? (subscription?.nextBillingDate ?? '') : ''
-  const pendingDowngrade = subscription?.pendingDowngrade ?? null
+  const planName           = subscription?.planName  ?? 'Free'
+  const planTagline        = subscription?.tagline   ?? ''
+  const planPrice          = hasSubscription ? (subscription?.price          ?? 0) : 0
+  const wizardRuns         = hasSubscription ? (subscription?.wizardRuns     ?? 0) : 0
+  const teamMembers        = hasSubscription ? (subscription?.teamMembers    ?? 0) : 0
+  const runsUsed           = hasSubscription ? (subscription?.usage.runsUsed      ?? 0) : 0
+  const runsTotal          = hasSubscription ? (subscription?.usage.runsTotal     ?? 0) : 0
+  const runsRemaining      = hasSubscription ? (subscription?.usage.runsRemaining ?? 0) : 0
+  const nextBillingDate    = hasSubscription ? (subscription?.nextBillingDate ?? '') : ''
+  const pendingDowngrade   = subscription?.pendingDowngrade ?? null
+  const counselCreditsTotal     = hasSubscription ? (subscription?.counselCreditsTotal     ?? 0) : 0
+  const counselCreditsRemaining = hasSubscription ? (subscription?.counselCreditsRemaining ?? 0) : 0
+  // currentPlanId for the Choose a Plan modal: trust hasSubscription, not planId from server
+  // (mock server returns planId="launchpad" even for unpaid/free users)
+  const effectivePlanId = hasSubscription ? (subscription?.planId ?? 'free') : 'free'
 
-  const tax      = parseFloat((planPrice * 0.15).toFixed(2))
-  const totalInv = planPrice + tax
+  const tax         = parseFloat((planPrice * 0.15).toFixed(2))
+  const totalInv    = planPrice + tax
   const progressPct = runsTotal > 0 ? Math.min(100, Math.round((runsUsed / runsTotal) * 100)) : 0
 
   // Non-subscribers see no invoices regardless of what the server returns
@@ -494,7 +499,34 @@ export default function DashboardSettings() {
                     <p className="dashboard-settings__pm-error" role="alert">{subError}</p>
                   )}
 
-                  {!subLoading && !subError && subscription && (
+                  {!subLoading && !subError && !hasSubscription && (
+                    <article className="dashboard-settings__plan">
+                      <div className="dashboard-settings__plan-top">
+                        <div>
+                          <h3>
+                            <BadgeCheck size={32} />
+                            Free plan
+                          </h3>
+                          <p>Get started with the basics — upgrade anytime to unlock more.</p>
+                        </div>
+                        <div className="dashboard-settings__price">
+                          <strong>R0</strong>
+                          <span>per month</span>
+                        </div>
+                      </div>
+
+                      <div className="dashboard-settings__plan-actions">
+                        <button type="button" onClick={openUpgradePlans}>
+                          Upgrade plan
+                        </button>
+                        <button type="button" onClick={openComparePlans}>
+                          Compare plans
+                        </button>
+                      </div>
+                    </article>
+                  )}
+
+                  {!subLoading && !subError && hasSubscription && subscription && (
                     <article className="dashboard-settings__plan">
                       {pendingDowngrade && (
                         <p className="bs-plan-active-until">
@@ -758,6 +790,13 @@ export default function DashboardSettings() {
                 <span style={{ width: `${progressPct}%` }} />
               </div>
               <p className="dashboard-settings__remaining">{runsRemaining} runs remaining</p>
+
+              {hasSubscription && (
+                <div className="dashboard-settings__usage-copy" style={{ marginTop: '12px' }}>
+                  <span>Counsel Credits</span>
+                  <strong>{counselCreditsRemaining} of {counselCreditsTotal}</strong>
+                </div>
+              )}
             </section>
           </aside>
         </div>
@@ -765,9 +804,9 @@ export default function DashboardSettings() {
 
       {/* ── Modals ──────────────────────────────────────────────────────────── */}
 
-      {activeModal === 'upgrade-plans' && subscription && (
+      {activeModal === 'upgrade-plans' && (
         <UpgradePlansModal
-          currentPlanId={subscription.planId}
+          currentPlanId={effectivePlanId}
           plans={plans}
           plansLoading={plansLoading}
           plansError={plansError}
