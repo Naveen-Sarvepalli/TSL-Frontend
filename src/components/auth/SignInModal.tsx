@@ -45,7 +45,7 @@ function validateFullName(v: string): string {
   return ''
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
 
 function validateEmail(v: string): string {
   const trimmed = v.trim()
@@ -82,9 +82,9 @@ function getPasswordStrength(rules: PasswordRules): StrengthLevel {
 }
 
 function validatePassword(v: string): string {
-  const trimmed = v.trim()
-  if (!trimmed) return 'Password is required.'
-  const rules = getPasswordRules(trimmed)
+  if (!v || !v.trim()) return 'Password is required.'
+  if (/\s/.test(v)) return 'Password cannot contain spaces.'
+  const rules = getPasswordRules(v)
   if (!rules.minLength) return 'Password must be at least 8 characters.'
   if (!rules.hasUpper) return 'Add at least one uppercase letter.'
   if (!rules.hasLower) return 'Add at least one lowercase letter.'
@@ -94,8 +94,8 @@ function validatePassword(v: string): string {
 }
 
 function validateConfirmPassword(password: string, confirm: string): string {
-  if (!confirm.trim()) return 'Please confirm your password.'
-  if (password.trim() !== confirm.trim()) return 'Passwords do not match.'
+  if (!confirm || !confirm.trim()) return 'Please confirm your password.'
+  if (password !== confirm) return 'Passwords do not match.'
   return ''
 }
 
