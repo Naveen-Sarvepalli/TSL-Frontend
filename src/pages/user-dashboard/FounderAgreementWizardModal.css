@@ -1,0 +1,201 @@
+/* ────────────────────────────────────────────────────────────
+   FounderAgreementWizardModal.css
+   Thin overrides on top of NdaWizardModal.css for the 6-step
+   Founders Agreement wizard.
+   ──────────────────────────────────────────────────────────── */
+
+/* ── Wider shell (7 steps need the room) ─────────────────── */
+.nda-modal--wide {
+  max-width: 960px;
+}
+
+/* ── Step bar: 7-step compact layout ─────────────────────── */
+.fa-steps {
+  gap: 0;
+  align-items: center;
+}
+
+/* Each step item: dot + label, shrinkable */
+.fa-step-item {
+  display: flex;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 12px 4px 12px 0;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* Override the base step-item padding so our gap rule wins */
+.nda-modal__steps.fa-steps .nda-modal__step-item {
+  padding: 12px 4px 12px 0;
+  gap: 6px;
+}
+
+/* Shrink dots slightly */
+.nda-modal__steps.fa-steps .nda-modal__step-dot {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* Smaller step labels, allow truncation */
+.nda-modal__steps.fa-steps .nda-modal__step-label {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Connector line between steps */
+.fa-step-connector {
+  flex: 1 1 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  min-width: 6px;
+  max-width: 24px;
+}
+
+/* ── Locked field (IP assignment — cannot be disabled) ────── */
+.fa-locked-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #bbddd0;
+  background: #f0faf6;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: #0d1b2a;
+}
+
+.fa-locked-pill {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #1c6b45;
+  background: #bbddd0;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* ── Running equity total bar ─────────────────────────────── */
+.fa-running-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0d1b2a;
+}
+
+.fa-running-total__value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0d1b2a;
+}
+
+.fa-running-total--ok .fa-running-total__value  { color: #16a34a; }
+.fa-running-total--bad .fa-running-total__value { color: #dc2626; }
+
+/* ── Block banner (red variant) ───────────────────────────── */
+.fa-banner--block {
+  background: #fff1f2;
+  border: 1px solid #fca5a5;
+  color: #7f1d1d;
+}
+
+/* ── "Nothing to declare" nil checkbox ───────────────────── */
+.fa-nil-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0d1b2a;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.fa-nil-checkbox input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* ── Disabled repeat table (prior IP when nil ticked) ─────── */
+.fa-repeat--disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ── Route-to-Counsel button ──────────────────────────────── */
+.fa-btn--counsel {
+  background: #fff1f2;
+  border: 1px solid #fca5a5;
+  color: #7f1d1d;
+}
+
+.fa-btn--counsel:hover {
+  background: #ffe4e6;
+}
+
+/* ── Counsel-sent toast ───────────────────────────────────── */
+.fa-counsel-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 24px;
+  padding: 12px 14px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: #166534;
+  animation: fa-toast-in 0.25s ease;
+}
+
+.fa-counsel-toast__icon {
+  flex-shrink: 0;
+  color: #16a34a;
+}
+
+.fa-counsel-toast__close {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #166534;
+  padding: 2px;
+  line-height: 1;
+  border-radius: 4px;
+  opacity: 0.7;
+}
+
+.fa-counsel-toast__close:hover {
+  opacity: 1;
+  background: #bbf7d0;
+}
+
+@keyframes fa-toast-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .fa-step-item {
+    flex: 0 0 auto;
+  }
+  .fa-step-connector {
+    min-width: 12px;
+  }
+}
