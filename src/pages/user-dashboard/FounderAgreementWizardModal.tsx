@@ -3,6 +3,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useUserProfile } from '../../context/UserProfileContext'
+import { mapFounderAgreementFields, type FounderAgreementFieldMap } from '../../services/founderAgreementFieldMap'
 import {
   calcEquityTotal,
   calcFounderAgreementProgress,
@@ -152,11 +153,15 @@ function Banner({ type, title, message }: { type: 'warn' | 'block'; title: strin
 }
 
 /* ─── Snapshot field (pre-filled from Company Snapshot) ─── */
-function SnapshotField({ value }: { value: string }) {
+function SnapshotField({ value, confirmed, onConfirm }: { value: string; confirmed: boolean; onConfirm: () => void }) {
   return (
-    <div className="nda-modal__snapshot-confirm">
+    <div className={`nda-modal__snapshot-confirm${confirmed ? ' nda-modal__snapshot-confirm--confirmed' : ''}`}>
       <span>{value || 'Complete your Company Snapshot'}</span>
-      <span className="nda-modal__snapshot-btn" style={{ cursor: 'default', background: '#c79a3b' }}>CONFIRM</span>
+      {confirmed ? (
+        <span className="nda-modal__snapshot-btn nda-modal__snapshot-btn--confirmed" style={{ cursor: 'default', fontWeight: 400 }}>✓ Confirmed</span>
+      ) : (
+        <button type="button" className="nda-modal__snapshot-btn" onClick={onConfirm}>CONFIRM</button>
+      )}
     </div>
   )
 }
@@ -205,31 +210,70 @@ function Field({ label, required, optional, hint, hintAfter, error, children }: 
 }
 
 /* ─── Repeating row: Founder ─────────────────────────────── */
-function FounderRow({ founder, index, canRemove, onChange, onRemove }: {
+function validateFounderField(key: string, value: string): string {
+  if (key === 'fullNames') {
+    if (!value.trim()) return 'Full name is required.'
+    if (/\d/.test(value)) return 'Full name must not contain numbers.'
+    return ''
+  }
+  if (key === 'idNumber') {
+    if (!value.trim()) return 'ID number is required.'
+    if (!/^\d{13}$/.test(value.trim())) return 'Must be exactly 13 digits.'
+    return ''
+  }
+  if (key === 'role') {
+    if (!value.trim()) return 'Role is required.'
+    if (/\d/.test(value)) return 'Role must not contain numbers.'
+    return ''
+  }
+  if (key === 'equityPct') {
+    if (!value.trim()) return 'Equity % is required.'
+    const pct = parseFloat(value)
+    if (isNaN(pct) || pct <= 0 || pct > 100) return 'Must be a number between 0 and 100.'
+    return ''
+  }
+  return ''
+}
+
+function FounderRow({ founder, index, canRemove, onChange, onRemove, submitErrors }: {
   founder: FAFounder; index: number; canRemove: boolean
   onChange: (f: FAFounder) => void; onRemove: () => void
+  submitErrors?: Record<string, string>
 }) {
-  const up = <K extends keyof FAFounder>(key: K, val: FAFounder[K]) => onChange({ ...founder, [key]: val })
+  const [liveErrors, setLiveErrors] = useState<Record<string, string>>({})
+  const labelStyle: React.CSSProperties = { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }
+
+  const up = <K extends keyof FAFounder>(key: K, val: FAFounder[K]) => {
+    onChange({ ...founder, [key]: val })
+    const err = validateFounderField(key as string, val as string)
+    setLiveErrors(prev => ({ ...prev, [key as string]: err }))
+  }
+
+  // submit-time errors seed the display; live errors clear them as user fixes
+  const err = { ...(submitErrors ?? {}), ...liveErrors }
   return (
     <div className="nda-modal__repeat-card fa-repeat-row--founders" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div className="nda-modal__repeat-grid nda-modal__repeat-grid--four">
+      <div className="nda-modal__repeat-grid nda-modal__repeat-grid--four" style={{ alignItems: 'start' }}>
         <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Full names</label>
-          <input className="nda-modal__input" type="text" placeholder="e.g. Thandiwe Nkosi"
+          <label className="nda-modal__label" style={labelStyle}>Full names <span className="nda-modal__required">*</span></label>
+          <input className={`nda-modal__input${err.fullNames ? ' nda-modal__input--error' : ''}`} type="text" placeholder="e.g. Thandiwe Nkosi"
             value={founder.fullNames} onChange={e => up('fullNames', e.target.value)} />
+          {err.fullNames && <p className="nda-modal__field-error">{err.fullNames}</p>}
         </div>
         <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Identity number</label>
-          <input className="nda-modal__input" type="text" placeholder="13-digit SA ID"
-            value={founder.idNumber} onChange={e => up('idNumber', e.target.value)} />
+          <label className="nda-modal__label" style={labelStyle}>Identity number <span className="nda-modal__required">*</span></label>
+          <input className={`nda-modal__input${err.idNumber ? ' nda-modal__input--error' : ''}`} type="text" placeholder="13-digit SA ID"
+            value={founder.idNumber} onChange={e => up('idNumber', e.target.value.replace(/\D/g, '').slice(0, 13))} />
+          {err.idNumber && <p className="nda-modal__field-error">{err.idNumber}</p>}
         </div>
         <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Role</label>
-          <input className="nda-modal__input" type="text" placeholder="e.g. Chief executive officer"
+          <label className="nda-modal__label" style={labelStyle}>Role <span className="nda-modal__required">*</span></label>
+          <input className={`nda-modal__input${err.role ? ' nda-modal__input--error' : ''}`} type="text" placeholder="e.g. Chief executive officer"
             value={founder.role} onChange={e => up('role', e.target.value)} />
+          {err.role && <p className="nda-modal__field-error">{err.role}</p>}
         </div>
         <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Time commitment</label>
+          <label className="nda-modal__label" style={labelStyle}>Time commitment</label>
           <select className="nda-modal__input" value={founder.commitment}
             onChange={e => up('commitment', e.target.value as FAFounder['commitment'])}>
             <option value="">Select…</option>
@@ -241,12 +285,13 @@ function FounderRow({ founder, index, canRemove, onChange, onRemove }: {
       </div>
       <div className="nda-modal__repeat-grid" style={{ gridTemplateColumns: '1fr 1fr auto' }}>
         <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Equity %</label>
-          <input className="nda-modal__input" type="text" placeholder="e.g. 40"
+          <label className="nda-modal__label" style={labelStyle}>Equity % <span className="nda-modal__required">*</span></label>
+          <input className={`nda-modal__input${err.equityPct ? ' nda-modal__input--error' : ''}`} type="text" placeholder="e.g. 40"
             value={founder.equityPct} onChange={e => up('equityPct', e.target.value)} />
+          {err.equityPct && <p className="nda-modal__field-error">{err.equityPct}</p>}
         </div>
         <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Capital contributed</label>
+          <label className="nda-modal__label" style={labelStyle}>Capital contributed</label>
           <input className="nda-modal__input" type="text" placeholder="Optional"
             value={founder.capital} onChange={e => up('capital', e.target.value)} />
         </div>
@@ -262,32 +307,59 @@ function FounderRow({ founder, index, canRemove, onChange, onRemove }: {
 }
 
 /* ─── Repeating row: Prior IP ────────────────────────────── */
-function PriorIpRow({ item, index, canRemove, onChange, onRemove }: {
+function validatePriorIpField(key: string, value: string): string {
+  if (key === 'founder') {
+    if (!value.trim()) return 'Founder name is required.'
+    if (/\d/.test(value)) return 'Founder name must not contain numbers.'
+    return ''
+  }
+  if (key === 'description') return value.trim() ? '' : 'Description is required.'
+  if (key === 'dateCreated') {
+    if (!value.trim()) return 'Date created is required.'
+    return ''
+  }
+  return ''
+}
+
+function PriorIpRow({ item, index, canRemove, onChange, onRemove, submitErrors }: {
   item: FAPriorIp; index: number; canRemove: boolean
   onChange: (f: FAPriorIp) => void; onRemove: () => void
+  submitErrors?: Record<string, string>
 }) {
-  const up = <K extends keyof FAPriorIp>(key: K, val: FAPriorIp[K]) => onChange({ ...item, [key]: val })
+  const [liveErrors, setLiveErrors] = useState<Record<string, string>>({})
+  const labelStyle: React.CSSProperties = { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }
+
+  const up = <K extends keyof FAPriorIp>(key: K, val: FAPriorIp[K]) => {
+    onChange({ ...item, [key]: val })
+    const err = validatePriorIpField(key as string, val as string)
+    setLiveErrors(prev => ({ ...prev, [key as string]: err }))
+  }
+
+  const err = { ...(submitErrors ?? {}), ...liveErrors }
   return (
     <div className="nda-modal__repeat-card">
-      <div className="nda-modal__repeat-grid nda-modal__repeat-grid--four">
+      <div className="nda-modal__repeat-grid nda-modal__repeat-grid--four" style={{ alignItems: 'start' }}>
         <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Founder</label>
-          <input className="nda-modal__input" type="text" placeholder="e.g. Thandiwe Nkosi"
+          <label className="nda-modal__label" style={labelStyle}>Founder <span className="nda-modal__required">*</span></label>
+          <input className={`nda-modal__input${err.founder ? ' nda-modal__input--error' : ''}`} type="text" placeholder="e.g. Thandiwe Nkosi"
             value={item.founder} onChange={e => up('founder', e.target.value)} />
+          {err.founder && <p className="nda-modal__field-error">{err.founder}</p>}
         </div>
         <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Description</label>
-          <input className="nda-modal__input" type="text" placeholder="e.g. Prototype pricing engine"
+          <label className="nda-modal__label" style={labelStyle}>Description <span className="nda-modal__required">*</span></label>
+          <input className={`nda-modal__input${err.description ? ' nda-modal__input--error' : ''}`} type="text" placeholder="e.g. Prototype pricing engine"
             value={item.description} onChange={e => up('description', e.target.value)} />
+          {err.description && <p className="nda-modal__field-error">{err.description}</p>}
         </div>
         <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Date created</label>
-          <input className="nda-modal__input" type="text" placeholder="e.g. March 2025"
+          <label className="nda-modal__label" style={labelStyle}>Date created <span className="nda-modal__required">*</span></label>
+          <input className={`nda-modal__input${err.dateCreated ? ' nda-modal__input--error' : ''}`} type="date"
             value={item.dateCreated} onChange={e => up('dateCreated', e.target.value)} />
+          {err.dateCreated && <p className="nda-modal__field-error">{err.dateCreated}</p>}
         </div>
         <div className="nda-modal__form-group" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'end' }}>
           <div>
-            <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Treatment</label>
+            <label className="nda-modal__label" style={labelStyle}>Treatment</label>
             <select className="nda-modal__input" value={item.treatment}
               onChange={e => up('treatment', e.target.value as FAPriorIp['treatment'])}>
               <option value="">Select…</option>
@@ -344,31 +416,53 @@ function DigitalAssetRow({ item, index, canRemove, onChange, onRemove }: {
 }
 
 /* ─── Repeating row: Signatory ───────────────────────────── */
-function SignatoryRow({ sig, index, canRemove, onChange, onRemove }: {
+function validateSignatoryField(key: string, value: string): string {
+  if (key === 'name') {
+    if (!value.trim()) return 'Name is required.'
+    if (/\d/.test(value)) return 'Name must not contain numbers.'
+    return ''
+  }
+  if (key === 'capacity') return value.trim() ? '' : 'Signing capacity is required.'
+  return ''
+}
+
+function SignatoryRow({ sig, index, canRemove, onChange, onRemove, submitErrors }: {
   sig: FASignatory; index: number; canRemove: boolean
   onChange: (f: FASignatory) => void; onRemove: () => void
+  submitErrors?: Record<string, string>
 }) {
-  const up = <K extends keyof FASignatory>(key: K, val: FASignatory[K]) => onChange({ ...sig, [key]: val })
+  const [liveErrors, setLiveErrors] = useState<Record<string, string>>({})
+  const labelStyle: React.CSSProperties = { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }
+
+  const up = <K extends keyof FASignatory>(key: K, val: FASignatory[K]) => {
+    onChange({ ...sig, [key]: val })
+    const err = validateSignatoryField(key as string, val as string)
+    setLiveErrors(prev => ({ ...prev, [key as string]: err }))
+  }
+
+  const err = { ...(submitErrors ?? {}), ...liveErrors }
   return (
     <div className="nda-modal__repeat-card">
-      <div className="nda-modal__repeat-grid" style={{ gridTemplateColumns: '1fr 1fr auto', alignItems: 'end' }}>
+      <div className="nda-modal__repeat-grid" style={{ gridTemplateColumns: '1fr 1fr auto', alignItems: 'start' }}>
         <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Name</label>
-          <input className="nda-modal__input" type="text" placeholder="Full name"
+          <label className="nda-modal__label" style={labelStyle}>Name <span className="nda-modal__required">*</span></label>
+          <input className={`nda-modal__input${err.name ? ' nda-modal__input--error' : ''}`} type="text" placeholder="Full name"
             value={sig.name} onChange={e => up('name', e.target.value)} />
+          {err.name && <p className="nda-modal__field-error">{err.name}</p>}
         </div>
         <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Signing as</label>
-          <select className="nda-modal__input" value={sig.capacity}
+          <label className="nda-modal__label" style={labelStyle}>Signing as <span className="nda-modal__required">*</span></label>
+          <select className={`nda-modal__input${err.capacity ? ' nda-modal__input--error' : ''}`} value={sig.capacity}
             onChange={e => up('capacity', e.target.value as FASignatory['capacity'])}>
             <option value="">Select…</option>
             <option>Founder</option>
             <option>Company (where incorporated)</option>
           </select>
+          {err.capacity && <p className="nda-modal__field-error">{err.capacity}</p>}
         </div>
         {canRemove && (
           <button type="button" className="nda-modal__row-remove" aria-label={`Remove signatory ${index + 1}`}
-            style={{ marginBottom: 1 }} onClick={onRemove}>
+            style={{ marginTop: 22 }} onClick={onRemove}>
             <X size={14} />
           </button>
         )}
@@ -388,13 +482,13 @@ function AddRowBtn({ label, onClick }: { label: string; onClick: () => void }) {
 
 /* ─── Modal props ────────────────────────────────────────── */
 interface FounderAgreementWizardModalProps {
-  onClose: () => void
+  onClose: (step?: number, data?: FounderAgreementWizardData) => void
   onComplete?: (data: FounderAgreementWizardData) => void
   initialStep?: number
   initialData?: FounderAgreementWizardData
   onStepChange?: (step: number, data: FounderAgreementWizardData) => void
-  onRouteToCounsel?: (data: FounderAgreementWizardData) => Promise<{ requestId: string; status: 'pending' | 'approved' } | null>
-  onRefreshPublicFundingReview?: (requestId: string) => Promise<'pending' | 'approved' | null>
+  onRouteToCounsel?: (fields: FounderAgreementFieldMap) => Promise<{ requestId: string; status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string | null } | null>
+  onRefreshPublicFundingReview?: (requestId: string) => Promise<{ status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string | null } | null>
 }
 
 const fmt = (v: string | undefined | null) => v?.trim() || '—'
@@ -417,7 +511,11 @@ export default function FounderAgreementWizardModal({
   const snapshotCompanyName = profile.entityType === 'Individual'
     ? profile.individualFullNames.trim()
     : profile.legalName.trim()
-  const resolved = Math.min(Math.max(initialStep, 1), 7) as Step
+  // A publicly funded IP declaration is a hard gate.  The Dashboard normally
+  // resumes at saved step + 1, so force every pending/rejected review back to
+  // Screen 5 instead of allowing a resume directly on Screen 6 or the preview.
+  const hasBlockedPublicFundingReview = initialData?.publiclyFunded === 'Yes' && initialData.publicFundingReviewStatus !== 'approved'
+  const resolved = (hasBlockedPublicFundingReview ? 5 : Math.min(Math.max(initialStep, 1), 7)) as Step
   const [step, setStep] = useState<Step>(resolved)
   const [data, setData] = useState<FounderAgreementWizardData>(() => ({
     ...FA_EMPTY_DATA,
@@ -429,7 +527,7 @@ export default function FounderAgreementWizardModal({
   const [isRoutingToCounsel, setIsRoutingToCounsel] = useState(false)
   const [counselToast, setCounselToast] = useState(false)
 
-  const progress = calcFounderAgreementProgress(data)
+  const progress = calcFounderAgreementProgress(data, Math.min(step, 6))
   const isComplete = progress === 100 && equityValid(data.founders)
   const totalChecks = FA_TOTAL_CHECKS
   const doneChecks = Math.round((progress / 100) * totalChecks)
@@ -437,19 +535,24 @@ export default function FounderAgreementWizardModal({
 
   const onStepChangeRef = useRef(onStepChange)
   useEffect(() => { onStepChangeRef.current = onStepChange }, [onStepChange])
-  const stepRef = useRef(step)
-  useEffect(() => { stepRef.current = step }, [step])
-  useEffect(() => { onStepChangeRef.current?.(stepRef.current, data) }, [data])
+  useEffect(() => {
+    onStepChangeRef.current?.(step, data)
+  }, [data, step])
+  const isPublicFundingBlocked = data.publiclyFunded === 'Yes' && data.publicFundingReviewStatus !== 'approved'
   const goTo = (target: Step) => {
     setErrors({})
-    setStep(target)
+    setStep(isPublicFundingBlocked && target > 5 ? 5 : target)
   }
 
   useEffect(() => {
-    if (data.publiclyFunded !== 'Yes' || data.publicFundingReviewStatus !== 'pending' || !data.publicFundingReviewRequestId || !onRefreshPublicFundingReview) return
+    if (data.publiclyFunded !== 'Yes' || !['pending', 'rejected'].includes(data.publicFundingReviewStatus) || !data.publicFundingReviewRequestId || !onRefreshPublicFundingReview) return
     let active = true
-    const refresh = () => onRefreshPublicFundingReview(data.publicFundingReviewRequestId!).then((status) => {
-      if (active && status === 'approved') setData((previous) => ({ ...previous, publicFundingReviewStatus: 'approved' }))
+    const refresh = () => onRefreshPublicFundingReview(data.publicFundingReviewRequestId!).then((review) => {
+      if (active && review) setData((previous) => ({
+        ...previous,
+        publicFundingReviewStatus: review.status,
+        publicFundingReviewReason: review.rejectionReason ?? null,
+      }))
     })
     void refresh()
     const intervalId = window.setInterval(() => { void refresh() }, 15_000)
@@ -500,26 +603,53 @@ export default function FounderAgreementWizardModal({
     const e: Record<string, string> = {}
     let valid = true
 
-    if (s === 1 && data.isIncorporated === 'No') {
-      if (!data.intendedName.trim()) { e.intendedName = 'Enter the intended company name.'; valid = false }
-      if (!data.targetIncorporation.trim()) { e.targetIncorporation = 'Enter a target incorporation date.'; valid = false }
+    if (s === 1) {
+      if (data.isIncorporated === 'Yes' && !data.companyConfirmed) { e.companyConfirmed = 'Please confirm your company name.'; valid = false }
+      if (data.isIncorporated === 'No') {
+        if (!data.intendedName.trim()) { e.intendedName = 'Enter the intended company name.'; valid = false }
+        if (!data.targetIncorporation.trim()) { e.targetIncorporation = 'Enter a target incorporation date.'; valid = false }
+      }
     }
     if (s === 2) {
       if (!data.founders.some(f => f.fullNames.trim())) { e.founders = 'Add at least one founder.'; valid = false }
+      data.founders.forEach((f, i) => {
+        const fields = ['fullNames', 'idNumber', 'role', 'equityPct'] as const
+        fields.forEach(key => {
+          const fieldErr = validateFounderField(key, f[key] as string)
+          if (fieldErr) { e[`founder_${i}_${key}`] = fieldErr; valid = false }
+        })
+      })
       if (!equityValid(data.founders)) { e.equity = 'Equity must total exactly 100%.'; valid = false }
     }
     if (s === 4 && data.reservedMatters.includes('Take on debt above a threshold')) {
       if (!data.debtThreshold.trim()) { e.debtThreshold = 'Enter a debt threshold value.'; valid = false }
+      else if (isNaN(Number(data.debtThreshold.replace(/[R,\s]/g, '')))) { e.debtThreshold = 'Debt threshold must be a valid number.'; valid = false }
     }
     if (s === 5) {
       const priorIpOk = data.priorIpNil || data.priorIp.some(p => p.founder.trim())
       if (!priorIpOk) { e.priorIp = 'Add at least one item, or tick "Nothing to declare".'; valid = false }
+      if (!data.priorIpNil) {
+        data.priorIp.forEach((p, i) => {
+          const fields = ['founder', 'description', 'dateCreated'] as const
+          fields.forEach(key => {
+            const fieldErr = validatePriorIpField(key, p[key] as string)
+            if (fieldErr) { e[`priorIp_${i}_${key}`] = fieldErr; valid = false }
+          })
+        })
+      }
     }
     if (s === 6) {
       if (data.restraint === 'Yes' && !(data.restraintMonths && parseInt(data.restraintMonths) > 0)) {
         e.restraintMonths = 'Enter a valid restraint duration.'; valid = false
       }
       if (!data.signatories.some(sig => sig.name.trim())) { e.signatories = 'Add at least one signatory.'; valid = false }
+      data.signatories.forEach((sig, i) => {
+        const fields = ['name', 'capacity'] as const
+        fields.forEach(key => {
+          const fieldErr = validateSignatoryField(key, sig[key] as string)
+          if (fieldErr) { e[`signatory_${i}_${key}`] = fieldErr; valid = false }
+        })
+      })
     }
 
     setErrors(e)
@@ -530,7 +660,12 @@ export default function FounderAgreementWizardModal({
   const next = () => {
     const valid = validate(step)
     if (!valid) return
-    if (step === 5 && data.publiclyFunded === 'Yes' && data.publicFundingReviewStatus !== 'approved') { void routeToCounsel(); return }
+    if (step === 5 && data.publiclyFunded === 'Yes') {
+      if (data.publicFundingReviewStatus === 'approved') { onStepChange?.(step, data); setStep(7); return }
+      if (data.publicFundingReviewStatus === 'pending' || data.publicFundingReviewStatus === 'rejected') return
+      void routeToCounsel()
+      return
+    }
     onStepChange?.(step, data)
     if (step === 5) { setStep(7); return }
     if (step === 7) {
@@ -547,7 +682,7 @@ export default function FounderAgreementWizardModal({
   }
 
   const handleGenerate = () => {
-    if (!isComplete) return
+    if (!isComplete || (data.publiclyFunded === 'Yes' && data.publicFundingReviewStatus !== 'approved')) return
     setIsGenerating(true)
     setTimeout(() => { setIsGenerating(false); onComplete?.(data); onClose() }, 2000)
   }
@@ -555,12 +690,13 @@ export default function FounderAgreementWizardModal({
   const routeToCounsel = async () => {
     if (!onRouteToCounsel || isRoutingToCounsel) return
     setIsRoutingToCounsel(true)
-    const review = await onRouteToCounsel(data)
+    const review = await onRouteToCounsel(mapFounderAgreementFields(data, profile))
     if (review) {
       setData((previous) => ({
         ...previous,
         publicFundingReviewRequestId: review.requestId,
         publicFundingReviewStatus: review.status,
+        publicFundingReviewReason: review.rejectionReason ?? null,
       }))
       setCounselToast(true)
       setTimeout(() => setCounselToast(false), 4000)
@@ -577,7 +713,7 @@ export default function FounderAgreementWizardModal({
   const showRestraintAreaWarn = data.restraint === 'Yes' && data.restraintArea === 'Worldwide'
 
   return (
-    <div className="nda-modal__backdrop" role="presentation" onClick={isGenerating ? undefined : onClose}>
+    <div className="nda-modal__backdrop" role="presentation" onClick={isGenerating ? undefined : () => onClose(step, data)}>
       <div
         className="nda-modal nda-modal--wide"
         role="dialog"
@@ -595,7 +731,7 @@ export default function FounderAgreementWizardModal({
               </p>
             </div>
             <button type="button" className="nda-modal__close" aria-label="Close"
-              onClick={isGenerating ? undefined : onClose} disabled={isGenerating}>
+              onClick={isGenerating ? undefined : () => onClose(step, data)} disabled={isGenerating}>
               <X size={16} />
             </button>
           </div>
@@ -646,8 +782,12 @@ export default function FounderAgreementWizardModal({
                   </Field>
 
                   {data.isIncorporated === 'Yes' && (
-                    <Field label="Company" required>
-                      <SnapshotField value={data.companyName} />
+                    <Field label="Company" required error={errors.companyConfirmed}>
+                      <SnapshotField
+                        value={data.companyName}
+                        confirmed={data.companyConfirmed}
+                        onConfirm={() => set('companyConfirmed', true)}
+                      />
                       <p className="nda-modal__field-hint" style={{ marginTop: 6 }}>
                         Pre-filled from your Company Snapshot.
                       </p>
@@ -694,7 +834,8 @@ export default function FounderAgreementWizardModal({
                     <div className="nda-modal__repeat-list">
                       {data.founders.map((f, i) => (
                         <FounderRow key={f.id} founder={f} index={i} canRemove={data.founders.length > 1}
-                          onChange={updated => updateFounder(i, updated)} onRemove={() => removeFounder(i)} />
+                          onChange={updated => updateFounder(i, updated)} onRemove={() => removeFounder(i)}
+                          submitErrors={Object.fromEntries(Object.entries(errors).filter(([k]) => k.startsWith(`founder_${i}_`)).map(([k, v]) => [k.replace(`founder_${i}_`, ''), v]))} />
                       ))}
                     </div>
                     <AddRowBtn label="+ Add another founder" onClick={addFounder} />
@@ -808,8 +949,17 @@ export default function FounderAgreementWizardModal({
                     <div className="nda-modal__two-col">
                       <Field label="Debt threshold" required error={errors.debtThreshold}>
                         <input className={`nda-modal__input${errors.debtThreshold ? ' nda-modal__input--error' : ''}`}
-                          type="text" placeholder="e.g. R250 000"
-                          value={data.debtThreshold} onChange={e => set('debtThreshold', e.target.value)} />
+                          type="text" placeholder="e.g. 250000"
+                          value={data.debtThreshold}
+                          onChange={e => {
+                            const val = e.target.value.replace(/[^\d]/g, '')
+                            set('debtThreshold', val)
+                            if (val && isNaN(Number(val))) {
+                              setErrors(prev => ({ ...prev, debtThreshold: 'Debt threshold must be a valid number.' }))
+                            } else {
+                              setErrors(prev => ({ ...prev, debtThreshold: '' }))
+                            }
+                          }} />
                       </Field>
                     </div>
                   )}
@@ -858,7 +1008,8 @@ export default function FounderAgreementWizardModal({
                     <div className={['nda-modal__repeat-list', data.priorIpNil ? 'fa-repeat--disabled' : ''].filter(Boolean).join(' ')}>
                       {data.priorIp.map((item, i) => (
                         <PriorIpRow key={item.id} item={item} index={i} canRemove={data.priorIp.length > 1}
-                          onChange={updated => updatePriorIp(i, updated)} onRemove={() => removePriorIp(i)} />
+                          onChange={updated => updatePriorIp(i, updated)} onRemove={() => removePriorIp(i)}
+                          submitErrors={Object.fromEntries(Object.entries(errors).filter(([k]) => k.startsWith(`priorIp_${i}_`)).map(([k, v]) => [k.replace(`priorIp_${i}_`, ''), v]))} />
                       ))}
                     </div>
                     <AddRowBtn label="+ Add pre-existing IP" onClick={addPriorIp} />
@@ -878,6 +1029,7 @@ export default function FounderAgreementWizardModal({
                           publiclyFunded: v as 'Yes' | 'No',
                           publicFundingReviewStatus: v === 'Yes' ? previous.publicFundingReviewStatus : 'not_required',
                           publicFundingReviewRequestId: v === 'Yes' ? previous.publicFundingReviewRequestId : null,
+                          publicFundingReviewReason: v === 'Yes' ? previous.publicFundingReviewReason : null,
                         }))} />
                     </Field>
                     <Field label="Any of it created while employed elsewhere" required>
@@ -886,7 +1038,15 @@ export default function FounderAgreementWizardModal({
                     </Field>
                   </div>
 
-                  {data.publiclyFunded === 'Yes' && data.publicFundingReviewStatus !== 'approved' && (
+                  {data.publiclyFunded === 'Yes' && data.publicFundingReviewStatus === 'rejected' && (
+                    <Banner
+                      type="block"
+                      title="Counsel rejected this public-funding review"
+                      message={`Counsel rejected the request, so you cannot proceed with document generation.${data.publicFundingReviewReason ? ` Reason: ${data.publicFundingReviewReason}` : ''}`}
+                    />
+                  )}
+
+                  {data.publiclyFunded === 'Yes' && data.publicFundingReviewStatus !== 'approved' && data.publicFundingReviewStatus !== 'rejected' && (
                     <Banner
                       type="block"
                       title="Block — publicly funded work, route to Counsel"
@@ -1005,7 +1165,8 @@ export default function FounderAgreementWizardModal({
                     <div className="nda-modal__repeat-list">
                       {data.signatories.map((sig, i) => (
                         <SignatoryRow key={sig.id} sig={sig} index={i} canRemove={data.signatories.length > 1}
-                          onChange={updated => updateSignatory(i, updated)} onRemove={() => removeSignatory(i)} />
+                          onChange={updated => updateSignatory(i, updated)} onRemove={() => removeSignatory(i)}
+                          submitErrors={Object.fromEntries(Object.entries(errors).filter(([k]) => k.startsWith(`signatory_${i}_`)).map(([k, v]) => [k.replace(`signatory_${i}_`, ''), v]))} />
                       ))}
                     </div>
                     <AddRowBtn label="+ Add a signatory" onClick={addSignatory} />
@@ -1130,12 +1291,12 @@ export default function FounderAgreementWizardModal({
                   : 'nda-modal__btn--primary',
               ].join(' ')}
               onClick={next}
-              disabled={(step === 7 && !isComplete) || (step === 5 && data.publiclyFunded === 'Yes' && (isRoutingToCounsel || data.publicFundingReviewStatus === 'pending'))}
+              disabled={(step === 7 && !isComplete) || (step === 5 && data.publiclyFunded === 'Yes' && (isRoutingToCounsel || data.publicFundingReviewStatus === 'pending' || data.publicFundingReviewStatus === 'rejected'))}
             >
               {step === 7 ? (
                 <><Check size={15} /> Generate Agreement</>
               ) : step === 5 && data.publiclyFunded === 'Yes' && data.publicFundingReviewStatus !== 'approved' ? (
-                 <>{isRoutingToCounsel ? <Loader2 size={15} className="nda-modal__generating-spinner" /> : '⛔'} {data.publicFundingReviewStatus === 'pending' ? 'Awaiting Counsel Approval' : 'Route to Counsel'}</>
+                 <>{isRoutingToCounsel ? <Loader2 size={15} className="nda-modal__generating-spinner" /> : '⛔'} {data.publicFundingReviewStatus === 'pending' ? 'Awaiting Counsel Approval' : data.publicFundingReviewStatus === 'rejected' ? 'Counsel Rejected — Generation Blocked' : 'Route to Counsel'}</>
               ) : step === 5 ? (
                 <><Eye size={15} /> Preview</>
               ) : (

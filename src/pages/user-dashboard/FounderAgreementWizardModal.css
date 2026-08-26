@@ -138,13 +138,14 @@
 
 /* ── Route-to-Counsel button ──────────────────────────────── */
 .fa-btn--counsel {
-  background: #fff1f2;
-  border: 1px solid #fca5a5;
-  color: #7f1d1d;
+  background: var(--color-gold, #D4A437);
+  border: none;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(212, 164, 55, 0.35);
 }
 
 .fa-btn--counsel:hover {
-  background: #ffe4e6;
+  background: var(--color-gold-light, #E3C36F);
 }
 
 /* ── Counsel-sent toast ───────────────────────────────────── */
@@ -188,6 +189,37 @@
 @keyframes fa-toast-in {
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Scoped overrides for Yes/No duration buttons ────────── */
+.nda-modal--wide .nda-modal__duration-grid {
+  grid-template-columns: repeat(auto-fill, minmax(80px, auto));
+}
+
+.nda-modal--wide .nda-modal__duration-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+/* ── Scoped font & size overrides (chip / toggle / add-row) ── */
+.nda-modal--wide .nda-modal__chip {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.nda-modal--wide .nda-modal__toggle {
+  min-width: 80px;
+  padding: 9px 16px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.nda-modal--wide .nda-modal__add-row {
+  padding: 9px 16px;
+  font-size: 14px;
+  font-family: inherit;
 }
 
 /* ── Responsive ───────────────────────────────────────────── */

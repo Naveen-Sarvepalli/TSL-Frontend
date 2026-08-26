@@ -25,6 +25,10 @@ import { capitalizePlan, formatDate } from '../../services/dashboardTypes'
 import type { DashboardData, LegalLinks, QuickAccessLinks, SubscriptionData, SubscriptionPlan } from '../../services/dashboardTypes'
 import { setPageMetadata } from '../../services/metadata'
 import { counselApi, paymentApi, smeApi, subscriptionApi } from '../../services/tslApi'
+import type { FounderAgreementFieldMap } from '../../services/founderAgreementFieldMap'
+import { mapPrivacyPolicyFields } from '../../services/privacyPolicyFieldMap'
+import { mapSlaFields } from '../../services/slaFieldMap'
+import { useUserProfile } from '../../context/UserProfileContext'
 import { openPaystackCheckout } from '../../services/paystackClient'
 import type { WizardAccess } from '../../services/tslApi'
 import { buildNdaDocx, buildEmploymentDocx, buildPrivacyPolicyDocx, buildFounderAgreementDocx, buildServiceAgreementDocx, buildSlaDocx } from '../../services/docxBuilders'
@@ -1531,15 +1535,24 @@ function buildSlaEvidencePack(d: SlaWizardData, completedAt: string | null): Blo
 export default function Dashboard() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { profile } = useUserProfile()
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { state: ndaState, startWizard, saveProgress, completeWizard, resetWizard: resetNda } = useNdaWizard()
   const { state: empState, startWizard: startEmp, saveProgress: saveEmpProgress, completeWizard: completeEmp, resetWizard: resetEmp } = useEmploymentWizard()
-  const { state: ppState, startWizard: startPP, saveProgress: savePPProgress, completeWizard: completePP, resetWizard: resetPP } = usePrivacyPolicyWizard()
+  const mapPrivacyFields = useCallback(
+    (data: PrivacyPolicyWizardData) => mapPrivacyPolicyFields(data, profile) as unknown as Record<string, unknown>,
+    [profile],
+  )
+  const { state: ppState, startWizard: startPP, saveProgress: savePPProgress, completeWizard: completePP, resetWizard: resetPP } = usePrivacyPolicyWizard(mapPrivacyFields)
   const { state: faState, startWizard: startFA, saveProgress: saveFAProgress, completeWizard: completeFA, resetWizard: resetFA } = useFounderAgreementWizard()
   const { state: saState, startWizard: startSA, saveProgress: saveSAProgress, completeWizard: completeSA, resetWizard: resetSA } = useServiceAgreementWizard()
-  const { state: slaState, startWizard: startSLA, saveProgress: saveSLAProgress, completeWizard: completeSLA, resetWizard: resetSLA } = useSlaWizard()
+  const mapSlaApiFields = useCallback(
+    (data: SlaWizardData) => mapSlaFields(data) as unknown as Record<string, unknown>,
+    [],
+  )
+  const { state: slaState, startWizard: startSLA, saveProgress: saveSLAProgress, completeWizard: completeSLA, resetWizard: resetSLA } = useSlaWizard(mapSlaApiFields)
 
   // ── Billing upgrade flow for Free plan users ──────────────────────────────
   const [upgradePayError, setUpgradePayError] = useState<string | null>(null)
@@ -2055,11 +2068,11 @@ export default function Dashboard() {
     showNdaToast("Founders' Agreement generated successfully. Your document is ready to download.")
   }
 
-  const routeFounderPublicFundingToCounsel = useCallback(async (data: FounderAgreementWizardData) => {
+  const routeFounderPublicFundingToCounsel = useCallback(async (fields: FounderAgreementFieldMap) => {
     const response = await counselApi.createPublicFundingReview({
       subject: "Founders' Agreement & IP Assignment - Publicly Funded IP Review",
-      company: data.companyName || data.intendedName || 'Founder company',
-      wizardData: data as unknown as Record<string, unknown>,
+      company: fields.intended_name || 'Founder company',
+      wizard_data: fields as unknown as Record<string, unknown>,
     })
     if (!response.success || !response.data) {
       showNdaToast(response.message || 'Unable to submit this review to admin.')
@@ -2071,7 +2084,7 @@ export default function Dashboard() {
 
   const refreshFounderPublicFundingReview = useCallback(async (requestId: string) => {
     const response = await counselApi.publicFundingReviewStatus(requestId)
-    return response.success && response.data ? response.data.status : null
+    return response.success && response.data ? response.data : null
   }, [])
 
   const handleSAComplete = (data: ServiceAgreementWizardData) => {
@@ -2419,8 +2432,8 @@ export default function Dashboard() {
 
         {isEmpModalOpen && (
           <EmploymentWizardModal
-            onClose={() => { setIsEmpModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
-            initialStep={empState.status === 'completed' ? 1 : empState.step + 1}
+            onClose={(step, data) => { if (step && data) saveEmpProgress(step, data, true); setIsEmpModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
+            initialStep={empState.status === 'completed' ? 1 : (empState.step || 1)}
             initialData={empState.status === 'completed' ? undefined : empState.data}
             onStepChange={(step, data) => saveEmpProgress(step, data)}
             onComplete={(data) => { handleEmpComplete(data); setIsEmpModalOpen(false); setActiveTab('completed'); openReturningDashboard() }}
@@ -2431,7 +2444,7 @@ export default function Dashboard() {
           <PrivacyPolicyWizardModal
             onClose={() => { setIsPPModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
             initialStep={ppState.status === 'completed' ? 1 : ppState.step + 1}
-            initialData={ppState.status === 'completed' ? undefined : ppState.data}
+            initialData={ppState.status === 'completed' ? undefined : { ...ppState.data, responsibleParty: ppState.data.responsibleParty || profile.legalName || profile.companyName }}
             onStepChange={(step, data) => savePPProgress(step, data)}
             onComplete={(data) => { handlePPComplete(data); setIsPPModalOpen(false); setActiveTab('completed'); openReturningDashboard() }}
           />
@@ -2439,8 +2452,8 @@ export default function Dashboard() {
 
         {isFAModalOpen && (
           <FounderAgreementWizardModal
-            onClose={() => { setIsFAModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
-            initialStep={faState.status === 'completed' ? 1 : faState.step + 1}
+            onClose={(step, data) => { if (step && data) saveFAProgress(step, data, true); setIsFAModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
+            initialStep={faState.status === 'completed' ? 1 : (faState.step || 1)}
             initialData={faState.status === 'completed' ? undefined : faState.data}
             onStepChange={(step, data) => saveFAProgress(step, data)}
             onComplete={(data) => { handleFAComplete(data); setIsFAModalOpen(false); setActiveTab('completed'); openReturningDashboard() }}
@@ -2461,8 +2474,8 @@ export default function Dashboard() {
 
         {isSLAModalOpen && (
           <SlaWizardModal
-            onClose={() => { setIsSLAModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
-            initialStep={slaState.status === 'completed' ? 1 : slaState.step + 1}
+            onClose={(step, data) => { if (step && data) saveSLAProgress(step, data, true); setIsSLAModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
+            initialStep={slaState.status === 'completed' ? 1 : (slaState.step || 1)}
             initialData={slaState.status === 'completed' ? undefined : slaState.data}
             onStepChange={(step, data) => saveSLAProgress(step, data)}
             onComplete={(data) => { handleSLAComplete(data); setIsSLAModalOpen(false); setActiveTab('completed'); openReturningDashboard() }}
@@ -3046,8 +3059,8 @@ export default function Dashboard() {
 
       {isEmpModalOpen && (
         <EmploymentWizardModal
-          onClose={() => setIsEmpModalOpen(false)}
-          initialStep={empState.status === 'completed' ? 1 : empState.step + 1}
+          onClose={(step, data) => { if (step && data) saveEmpProgress(step, data, true); setIsEmpModalOpen(false) }}
+          initialStep={empState.status === 'completed' ? 1 : (empState.step || 1)}
           initialData={empState.status === 'completed' ? undefined : empState.data}
           onStepChange={(step, data) => saveEmpProgress(step, data)}
           onComplete={(data) => { handleEmpComplete(data); setIsEmpModalOpen(false) }}
@@ -3058,7 +3071,7 @@ export default function Dashboard() {
         <PrivacyPolicyWizardModal
           onClose={() => setIsPPModalOpen(false)}
           initialStep={ppState.status === 'completed' ? 1 : ppState.step + 1}
-          initialData={ppState.status === 'completed' ? undefined : ppState.data}
+          initialData={ppState.status === 'completed' ? undefined : { ...ppState.data, responsibleParty: ppState.data.responsibleParty || profile.legalName || profile.companyName }}
           onStepChange={(step, data) => savePPProgress(step, data)}
           onComplete={(data) => { handlePPComplete(data); setIsPPModalOpen(false) }}
         />
@@ -3066,8 +3079,8 @@ export default function Dashboard() {
 
       {isFAModalOpen && (
         <FounderAgreementWizardModal
-          onClose={() => setIsFAModalOpen(false)}
-          initialStep={faState.status === 'completed' ? 1 : faState.step + 1}
+          onClose={(step, data) => { if (step && data) saveFAProgress(step, data, true); setIsFAModalOpen(false) }}
+          initialStep={faState.status === 'completed' ? 1 : (faState.step || 1)}
           initialData={faState.status === 'completed' ? undefined : faState.data}
           onStepChange={(step, data) => saveFAProgress(step, data)}
           onComplete={(data) => { handleFAComplete(data); setIsFAModalOpen(false) }}
@@ -3088,8 +3101,8 @@ export default function Dashboard() {
 
       {isSLAModalOpen && (
         <SlaWizardModal
-          onClose={() => setIsSLAModalOpen(false)}
-          initialStep={slaState.status === 'completed' ? 1 : slaState.step + 1}
+          onClose={(step, data) => { if (step && data) saveSLAProgress(step, data, true); setIsSLAModalOpen(false) }}
+          initialStep={slaState.status === 'completed' ? 1 : (slaState.step || 1)}
           initialData={slaState.status === 'completed' ? undefined : slaState.data}
           onStepChange={(step, data) => saveSLAProgress(step, data)}
           onComplete={(data) => { handleSLAComplete(data); setIsSLAModalOpen(false) }}

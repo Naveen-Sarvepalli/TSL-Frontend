@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Camera,
   CheckCircle2,
+  ClipboardList,
   LockKeyhole,
   Loader2,
   Mail,
@@ -100,6 +101,7 @@ const navItems = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'users', label: 'Users & Activity', icon: UsersRound },
   { key: 'counsel', label: 'Counsel', icon: BriefcaseBusiness },
+  { key: 'counsel-requests', label: 'Counsel Requests', icon: ClipboardList },
   { key: 'issues', label: 'Issues', icon: AlertTriangle, badge: 23 },
   { key: 'settings', label: 'Settings', icon: Settings },
 ] as const
@@ -649,29 +651,33 @@ export default function AdminDashboard() {
       ? 'User & Admin Management'
       : activeNav === 'counsel'
         ? 'Counsel Management'
-        : activeNav === 'issues'
-          ? 'Issues Management'
-          : activeNav === 'settings'
-            ? 'Settings'
-            : activeNav === 'profile'
-              ? 'Profile'
-              : showAllRequests
-                ? 'Counsel Requests'
-                : 'Dashboard Overview'
+        : activeNav === 'counsel-requests'
+          ? 'Counsel Requests'
+          : activeNav === 'issues'
+            ? 'Issues Management'
+            : activeNav === 'settings'
+              ? 'Settings'
+              : activeNav === 'profile'
+                ? 'Profile'
+                : showAllRequests
+                  ? 'Counsel Requests'
+                  : 'Dashboard Overview'
   const headerDescription =
     activeNav === 'users'
       ? 'Manage platform administrators, permissions, and user access'
       : activeNav === 'counsel'
         ? 'Manage counsel availability, expertise, and case workload'
-        : activeNav === 'issues'
-          ? 'Monitor, prioritize, and resolve platform issues'
-          : activeNav === 'settings'
-            ? 'Configure billing, notifications, and platform security'
-            : activeNav === 'profile'
-              ? 'Manage your account settings and preferences'
-              : showAllRequests
-                ? 'All counsel requests submitted by users'
-                : "Welcome back! Here's what's happening with your platform today."
+        : activeNav === 'counsel-requests'
+          ? 'All counsel requests submitted by users'
+          : activeNav === 'issues'
+            ? 'Monitor, prioritize, and resolve platform issues'
+            : activeNav === 'settings'
+              ? 'Configure billing, notifications, and platform security'
+              : activeNav === 'profile'
+                ? 'Manage your account settings and preferences'
+                : showAllRequests
+                  ? 'All counsel requests submitted by users'
+                  : "Welcome back! Here's what's happening with your platform today."
 
   return (
     <>
@@ -699,12 +705,26 @@ export default function AdminDashboard() {
                 className={[
                   'admin-dashboard__nav-item',
                   item.key === 'issues' ? 'admin-dashboard__nav-item--issues' : '',
-                  activeNav === item.key ? 'admin-dashboard__nav-item--active' : '',
+                  (item.key === 'counsel-requests'
+                    ? showAllRequests && activeNav === 'dashboard'
+                    : item.key === 'dashboard'
+                    ? activeNav === 'dashboard' && !showAllRequests
+                    : activeNav === item.key) ? 'admin-dashboard__nav-item--active' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
                 key={item.label}
-                onClick={() => { setActiveNav(item.key); setShowAllRequests(false); setRequestSearch('') }}
+                onClick={() => {
+                  if (item.key === 'counsel-requests') {
+                    setActiveNav('dashboard')
+                    setShowAllRequests(true)
+                    setRequestSearch('')
+                  } else {
+                    setActiveNav(item.key)
+                    setShowAllRequests(false)
+                    setRequestSearch('')
+                  }
+                }}
               >
                 <Icon size={17} />
                 <span>{item.label}</span>
@@ -1203,7 +1223,7 @@ export default function AdminDashboard() {
                           const assignedBy = (request as Record<string, unknown>).assignedCounselName as string | undefined
                           const email = (request as Record<string, unknown>).fromUserEmail as string | undefined
                           return (
-                            <article className="ar-card" key={request.requestId}>
+                            <article className={`ar-card${normStatus === 'rejected reassignment needed' ? ' ar-card--rejected' : ''}`} key={request.requestId}>
                               {/* Col 1 row 1: title */}
                               <div className="ar-card__top">
                                 <h3 className="ar-card__title">{request.subject || 'Contract Review for SaaS Agreement'}</h3>
@@ -1232,7 +1252,6 @@ export default function AdminDashboard() {
                                   </button>
                                 )}
                               </div>
-                              {normStatus === 'rejected reassignment needed' && request.rejectionReason && <div className="ar-card__rejection-reason">Decline reason: {request.rejectionReason}</div>}
                               {/* Col 1 row 2: user */}
                               <div className="ar-card__bottom">
                                 <div className="ar-card__user">
@@ -1242,6 +1261,7 @@ export default function AdminDashboard() {
                                     <span className="ar-card__user-email">{email ?? `${(request.fromUser || 'user').toLowerCase().replace(/\s+/g, '.')}@company.com`}</span>
                                   </div>
                                 </div>
+                                {normStatus === 'rejected reassignment needed' && request.rejectionReason && <div className="ar-card__rejection-reason">Decline reason: {request.rejectionReason}</div>}
                               </div>
                             </article>
                           )

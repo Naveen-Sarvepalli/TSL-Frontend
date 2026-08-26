@@ -1,11 +1,12 @@
 /**
  * usePrivacyPolicyWizard.ts
  *
- * All persistence goes through wizardService.
- * Switch VITE_WIZARD_STORAGE=api to use the real backend.
+ * UI state is retained locally; API-mode persistence submits the canonical
+ * Blueprint field map supplied by the dashboard.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { wizardService, type WizardDraft } from '../services/wizardService'
+import { privacyPolicyWizardApi } from '../services/tslApi'
 
 export interface PrivacyPurposeRow {
   purpose: string
@@ -161,7 +162,7 @@ function hasFilledCookie(row: PrivacyCookieRow) {
 }
 
 export function calcPrivacyPolicyProgress(data: PrivacyPolicyWizardData): number {
-  let total = 17
+  let total = 18
   let filled = 0
 
   if (data.responsiblePartyConfirmed) filled += 1
@@ -191,7 +192,7 @@ export function calcPrivacyPolicyProgress(data: PrivacyPolicyWizardData): number
 }
 
 export const PP_EMPTY_DATA: PrivacyPolicyWizardData = {
-  responsibleParty: 'The Startup Legal (Pty) Ltd',
+  responsibleParty: '',
   responsiblePartyConfirmed: false,
   officerFullNames: '',
   officerIdNumber: '',
@@ -220,7 +221,7 @@ export const PP_EMPTY_DATA: PrivacyPolicyWizardData = {
   automatedDecisions: false,
 }
 
-export const PP_TOTAL_REQUIRED = 17
+export const PP_TOTAL_REQUIRED = 18
 
 const defaultState: PrivacyPolicyWizardState = {
   status: 'idle',
@@ -258,7 +259,9 @@ function stateToDraft(state: PrivacyPolicyWizardState): WizardDraft<PrivacyPolic
   }
 }
 
-export function usePrivacyPolicyWizard() {
+export function usePrivacyPolicyWizard(
+  toApiFields?: (data: PrivacyPolicyWizardData) => Record<string, unknown>,
+) {
   const [state, setState] = useState<PrivacyPolicyWizardState>(() => {
     const raw = localStorage.getItem(LOCAL_KEY)
     if (raw) {
@@ -277,10 +280,16 @@ export function usePrivacyPolicyWizard() {
     const flush = () => {
       const draft = stateToDraft(nextState)
       localStorage.setItem(LOCAL_KEY, JSON.stringify(draft))
+      if (wizardService.mode === 'api' && toApiFields) {
+        void privacyPolicyWizardApi.saveDraft({
+          ...draft,
+          data: toApiFields(nextState.data),
+        })
+      }
     }
     if (immediate) { flush(); return }
     saveTimerRef.current = setTimeout(flush, 400)
-  }, [])
+  }, [toApiFields])
 
   const startWizard = useCallback(() => {
     setState((prev) => {
@@ -313,21 +322,20 @@ export function usePrivacyPolicyWizard() {
       const completedAt = new Date().toISOString()
       const next: PrivacyPolicyWizardState = { ...prev, status: 'completed', completedAt }
       persist(next, true)
+      if (wizardService.mode === 'api' && toApiFields) {
+        void privacyPolicyWizardApi.complete(toApiFields(next.data))
+      }
       return next
     })
-  }, [persist])
+  }, [persist, toApiFields])
 
   const resetWizard = useCallback(() => {
     setState(defaultState)
     localStorage.removeItem(LOCAL_KEY)
   }, [])
 
-  useEffect(() => {
-    if (wizardService.mode !== 'api') return
-    wizardService.load<PrivacyPolicyWizardData>('privacy-policy').then((draft) => {
-      if (draft) setState(draftToState(draft))
-    })
-  }, [])
+  // API drafts are canonical Field maps; they are intentionally not rehydrated
+  // into the UI's richer editing state. Local storage remains the resume source.
 
   return { state, startWizard, saveProgress, completeWizard, resetWizard }
 }

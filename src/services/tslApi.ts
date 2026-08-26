@@ -221,11 +221,25 @@ export const wizardApi = {
   list: () => request<WizardItem[]>('/api/v1/wizards', 'GET', undefined, false),
 }
 
+/** Privacy drafts use the Blueprint's canonical snake_case field map. */
+export const privacyPolicyWizardApi = {
+  saveDraft: (draft: JsonRecord) =>
+    request('/api/v1/sme/wizards/privacy-policy/draft', 'PUT', draft),
+  complete: (data: JsonRecord) =>
+    request<{ completedAt: string }>('/api/v1/sme/wizards/privacy-policy/complete', 'POST', { data }),
+}
+
+/** SLA drafts use the Blueprint's canonical snake_case field map. */
+export const slaWizardApi = {
+  saveDraft: (draft: JsonRecord) => request('/api/v1/sme/wizards/sla/draft', 'PUT', draft),
+  complete: (data: JsonRecord) => request<{ completedAt: string }>('/api/v1/sme/wizards/sla/complete', 'POST', { data }),
+}
+
 export const counselApi = {
   credits: () => request<CounselCredits>('/api/v1/sme/counsel/credits'),
   createRequest: (payload: JsonRecord) => request('/api/v1/sme/counsel/requests', 'POST', payload),
-  createPublicFundingReview: (payload: JsonRecord) => request<{ requestId: string; status: 'pending' | 'approved' }>('/api/v1/sme/counsel/public-funding-review', 'POST', payload),
-  publicFundingReviewStatus: (requestId: string) => request<{ status: 'pending' | 'approved' }>(`/api/v1/sme/counsel/public-funding-review/${encodeURIComponent(requestId)}`),
+  createPublicFundingReview: (payload: JsonRecord) => request<{ requestId: string; status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string | null }>('/api/v1/sme/counsel/public-funding-review', 'POST', payload),
+  publicFundingReviewStatus: (requestId: string) => request<{ status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string | null }>(`/api/v1/sme/counsel/public-funding-review/${encodeURIComponent(requestId)}`),
   requests: () => request<CounselRequest[]>('/api/v1/sme/counsel/requests'),
   topUpCredits: (payload: JsonRecord) => request<CounselCredits>('/api/v1/sme/counsel/topup', 'POST', payload),
 }
