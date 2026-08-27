@@ -2422,8 +2422,8 @@ export default function Dashboard() {
             visible. Completing lands on Completed tab. */}
         {isNdaModalOpen && (
           <NdaWizardModal
-            onClose={() => { setIsNdaModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
-            initialStep={ndaState.status === 'completed' ? 1 : ndaState.step + 1}
+            onClose={(step, data) => { saveProgress(step, data, true); setIsNdaModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
+            initialStep={ndaState.status === 'completed' ? 1 : (ndaState.step || 1)}
             initialData={ndaState.status === 'completed' ? undefined : ndaState.data}
             onStepChange={(step, data) => saveProgress(step, data)}
             onComplete={(data) => { handleNdaComplete(data); setIsNdaModalOpen(false); setActiveTab('completed'); openReturningDashboard() }}
@@ -2442,8 +2442,8 @@ export default function Dashboard() {
 
         {isPPModalOpen && (
           <PrivacyPolicyWizardModal
-            onClose={() => { setIsPPModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
-            initialStep={ppState.status === 'completed' ? 1 : ppState.step + 1}
+            onClose={(step, data) => { savePPProgress(step, data, true); setIsPPModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
+            initialStep={ppState.status === 'completed' ? 1 : (ppState.step || 1)}
             initialData={ppState.status === 'completed' ? undefined : { ...ppState.data, responsibleParty: ppState.data.responsibleParty || profile.legalName || profile.companyName }}
             onStepChange={(step, data) => savePPProgress(step, data)}
             onComplete={(data) => { handlePPComplete(data); setIsPPModalOpen(false); setActiveTab('completed'); openReturningDashboard() }}
@@ -3049,8 +3049,8 @@ export default function Dashboard() {
 
       {isNdaModalOpen && (
         <NdaWizardModal
-          onClose={() => setIsNdaModalOpen(false)}
-          initialStep={ndaState.status === 'completed' ? 1 : ndaState.step + 1}
+          onClose={(step, data) => { saveProgress(step, data, true); setIsNdaModalOpen(false) }}
+          initialStep={ndaState.status === 'completed' ? 1 : (ndaState.step || 1)}
           initialData={ndaState.status === 'completed' ? undefined : ndaState.data}
           onStepChange={(step, data) => saveProgress(step, data)}
           onComplete={(data) => { handleNdaComplete(data); setIsNdaModalOpen(false) }}
@@ -3069,8 +3069,8 @@ export default function Dashboard() {
 
       {isPPModalOpen && (
         <PrivacyPolicyWizardModal
-          onClose={() => setIsPPModalOpen(false)}
-          initialStep={ppState.status === 'completed' ? 1 : ppState.step + 1}
+          onClose={(step, data) => { savePPProgress(step, data, true); setIsPPModalOpen(false) }}
+          initialStep={ppState.status === 'completed' ? 1 : (ppState.step || 1)}
           initialData={ppState.status === 'completed' ? undefined : { ...ppState.data, responsibleParty: ppState.data.responsibleParty || profile.legalName || profile.companyName }}
           onStepChange={(step, data) => savePPProgress(step, data)}
           onComplete={(data) => { handlePPComplete(data); setIsPPModalOpen(false) }}
