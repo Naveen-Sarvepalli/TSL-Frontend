@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { NotificationProvider } from '../context/NotificationContext'
 import { UserProfileProvider } from '../context/UserProfileContext'
 import { CounselRequestProvider } from '../context/CounselRequestContext'
@@ -35,6 +35,23 @@ const BlueprintTopUpPayment = lazy(() => import('../pages/user-dashboard/Bluepri
 const WizardCatalogue = lazy(() => import('../pages/WizardCatalogue'))
 const WizardDetails = lazy(() => import('../pages/WizardDetails'))
 
+function HomeOrRedirect() {
+  try {
+    if (localStorage.getItem('tsl-authenticated') === 'true') {
+      const raw = localStorage.getItem('tsl-auth-user')
+      if (raw) {
+        const user = JSON.parse(raw) as { portal?: string; role?: string }
+        if (user.portal === 'admin' || user.role === 'admin') return <Navigate to="/admin/dashboard" replace />
+        if (user.portal === 'counsel') return <Navigate to="/counsel/dashboard" replace />
+        return <Navigate to="/dashboard" replace />
+      }
+    }
+  } catch {
+    // fall through to Home
+  }
+  return <Home />
+}
+
 export function AppRoutes() {
   return (
     <CounselRequestProvider>
@@ -49,8 +66,8 @@ export function AppRoutes() {
     >
       <Routes>
         <Route element={<RootLayout />}>
-          {/* Public marketing routes */}
-          <Route index element={<Home />} />
+          {/* Public marketing routes — redirect authenticated users to their portal */}
+          <Route index element={<HomeOrRedirect />} />
           <Route path="about" element={<About />} />
           <Route path="features" element={<Features />} />
           <Route path="pricing" element={<Pricing />} />
@@ -83,6 +100,12 @@ export function AppRoutes() {
             <Route path="dashboard/blueprints" element={<DashboardWizards />} />
             <Route path="dashboard/wizard-details" element={<DashboardWizardDetails />} />
             <Route path="admin/dashboard" element={<AdminDashboard />} />
+            <Route path="admin/dashboard/users" element={<AdminDashboard />} />
+            <Route path="admin/dashboard/counsel" element={<AdminDashboard />} />
+            <Route path="admin/dashboard/counsel-requests" element={<AdminDashboard />} />
+            <Route path="admin/dashboard/issues" element={<AdminDashboard />} />
+            <Route path="admin/dashboard/settings" element={<AdminDashboard />} />
+            <Route path="admin/dashboard/profile" element={<AdminDashboard />} />
             <Route path="counsel/dashboard" element={<CounselPortal mode="dashboard" />} />
             <Route path="counsel/requests" element={<CounselPortal mode="requests" />} />
             <Route path="counsel/profile" element={<CounselProfile />} />

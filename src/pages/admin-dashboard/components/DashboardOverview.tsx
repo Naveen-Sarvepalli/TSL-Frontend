@@ -85,7 +85,7 @@ export default function DashboardOverview({
           </span>
           <div>
             <strong>{(dashboardData?.kpis?.activeWizards ?? 1234).toLocaleString('en-ZA')}</strong>
-            <h2>Active Wizards</h2>
+            <h2>Active Blueprints</h2>
             <p>Trending upward</p>
           </div>
         </article>
@@ -140,15 +140,15 @@ export default function DashboardOverview({
           </section>
 
           <section className="admin-dashboard__top-wizards">
-            <h2>Top Performing Wizards</h2>
+            <h2>Top Performing Blueprints</h2>
             {(topWizards.length
               ? topWizards
               : [
                   { name: 'NDA Generator', completions: 1234, percent: 92 },
-                  { name: 'Employment Contract', completions: 987, percent: 85 },
-                  { name: 'Shareholder Agreement', completions: 756, percent: 88 },
-                  { name: 'Director Appointment', completions: 543, percent: 79 },
-                  { name: 'Company Registration', completions: 432, percent: 91 },
+                  { name: 'Employment Offer Letter', completions: 987, percent: 85 },
+                  { name: 'Privacy & Cookies Policy', completions: 756, percent: 88 },
+                  { name: 'Founders agreement and IP assignment', completions: 543, percent: 79 },
+                  { name: 'Service Level Agreement (SLA)', completions: 432, percent: 91 },
                 ]
             ).map((wizard) => (
               <article className="admin-dashboard__wizard-metric" key={wizard.name}>
