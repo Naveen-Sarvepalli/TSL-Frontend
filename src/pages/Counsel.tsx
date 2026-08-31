@@ -1,4 +1,3 @@
-import { Fragment } from 'react'
 import { motion } from 'framer-motion'
 import {
   ArrowRight,
@@ -34,6 +33,12 @@ const comparisonCards = [
   {
     title: 'Traditional Legal Support',
     icon: BriefcaseBusiness,
+    svgIcon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M16 20V4C16 3.46957 15.7893 2.96086 15.4142 2.58579C15.0391 2.21071 14.5304 2 14 2H10C9.46957 2 8.96086 2.21071 8.58579 2.58579C8.21071 2.96086 8 3.46957 8 4V20" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M20 6H4C2.89543 6 2 6.89543 2 8V18C2 19.1046 2.89543 20 4 20H20C21.1046 20 22 19.1046 22 18V8C22 6.89543 21.1046 6 20 6Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
     itemIcon: CircleX,
     items: [
       'Email documents to counsel for review',
@@ -45,6 +50,15 @@ const comparisonCards = [
   {
     title: 'Counsel on TSL',
     icon: Scale,
+    svgIcon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M16 16L19 8L22 16C21.13 16.65 20.08 17 19 17C17.92 17 16.87 16.65 16 16Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M2 16L5 8L8 16C7.13 16.65 6.08 17 5 17C3.92 17 2.87 16.65 2 16Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M7 21H17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M12 3V21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M3 7H5C7 7 10 6 12 5C14 6 17 7 19 7H21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
     itemIcon: CircleCheck,
     featured: true,
     items: [
@@ -186,7 +200,11 @@ export default function Counsel() {
           </p>
           <div className="counsel-hero__buttons">
             <a className="counsel-button counsel-button--dark" href="#defined-gates">
-              <CircleDot size={16} strokeWidth={2.1} />
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M8.0026 14.6673C11.6845 14.6673 14.6693 11.6825 14.6693 8.00065C14.6693 4.31875 11.6845 1.33398 8.0026 1.33398C4.32071 1.33398 1.33594 4.31875 1.33594 8.00065C1.33594 11.6825 4.32071 14.6673 8.0026 14.6673Z" stroke="#C79A3B" strokeWidth="1.33333" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M8 12C10.2091 12 12 10.2091 12 8C12 5.79086 10.2091 4 8 4C5.79086 4 4 5.79086 4 8C4 10.2091 5.79086 12 8 12Z" stroke="#C79A3B" strokeWidth="1.33333" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M7.9974 9.33268C8.73378 9.33268 9.33073 8.73573 9.33073 7.99935C9.33073 7.26297 8.73378 6.66602 7.9974 6.66602C7.26102 6.66602 6.66406 7.26297 6.66406 7.99935C6.66406 8.73573 7.26102 9.33268 7.9974 9.33268Z" stroke="#C79A3B" strokeWidth="1.33333" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
               Gate-Based Engagement
             </a>
             <a className="counsel-button counsel-button--dark" href="#billing-policy">
@@ -209,8 +227,8 @@ export default function Counsel() {
         variants={staggerContainer}
       >
         <div className="counsel-shell">
-          <motion.h2 className="counsel-section__title" variants={revealUp}>How Counsel Works</motion.h2>
-          <motion.p className="counsel-section__subtitle" variants={revealUp}>
+          <motion.h2 className="counsel-section__title counsel-section__title--governed" variants={revealUp}>How Counsel Works</motion.h2>
+          <motion.p className="counsel-section__subtitle counsel-section__subtitle--governed" variants={revealUp}>
             Attorney support is embedded in your workflows, not bolted on through email or external consultations.
           </motion.p>
 
@@ -225,7 +243,7 @@ export default function Counsel() {
                 >
                   <div className="counsel-card__header">
                     <span className="counsel-card__icon">
-                      <Icon size={18} strokeWidth={2.2} />
+                      {(card as any).svgIcon ?? <Icon size={18} strokeWidth={2.2} />}
                     </span>
                     <h3>{card.title}</h3>
                   </div>
@@ -275,8 +293,8 @@ export default function Counsel() {
               When Counsel Is Involved
             </span>
           </motion.div>
-          <motion.h2 className="counsel-section__title" variants={revealUp}>Defined Review and Approval Gates</motion.h2>
-          <motion.p className="counsel-section__subtitle" variants={revealUp}>
+          <motion.h2 className="counsel-section__title counsel-section__title--governed" variants={revealUp}>Defined Review and Approval Gates</motion.h2>
+          <motion.p className="counsel-section__subtitle counsel-section__subtitle--governed" variants={revealUp}>
             Counsel is triggered at specific points in your workflows where legal expertise adds the most value.
           </motion.p>
 
@@ -312,12 +330,12 @@ export default function Counsel() {
       >
         <div className="counsel-shell">
           <motion.div className="counsel-section__eyebrowWrap" variants={revealUp}>
-            <span className="counsel-pill counsel-pill--light">
+            <span className="counsel-pill counsel-pill--light counsel-pill--included">
               <CircleCheck size={14} strokeWidth={2.1} />
               What's Included
             </span>
           </motion.div>
-          <motion.h2 className="counsel-section__title" variants={revealUp}>Monthly Attorney Support Package</motion.h2>
+          <motion.h2 className="counsel-section__title counsel-section__title--support" variants={revealUp}>Monthly Attorney Support Package</motion.h2>
           <motion.p className="counsel-section__subtitle" variants={revealUp}>
             Your monthly attorney hours include reviews, guidance, risk assessments, and audit-ready documentation.
           </motion.p>
@@ -351,7 +369,7 @@ export default function Counsel() {
               <strong>Monthly Hours Do Not Roll Over</strong>
               <p>
                 Attorney hours are allocated monthly based on your plan tier. Unused hours expire at the end of
-                each month and do not carry forward to the next billing cycle.
+                each month and do not carry forward to the next billing period.
               </p>
             </div>
           </motion.div>
@@ -373,9 +391,9 @@ export default function Counsel() {
               Governance & Audit
             </span>
           </motion.div>
-          <motion.h2 className="counsel-section__title" variants={revealUp}>How Counsel Is Governed</motion.h2>
-          <motion.p className="counsel-section__subtitle" variants={revealUp}>
-            All counsel activity is recorded, identity-linked, and preserved in audit-friendly records and forms.
+          <motion.h2 className="counsel-section__title counsel-section__title--governed" variants={revealUp}>How Counsel Is Governed</motion.h2>
+          <motion.p className="counsel-section__subtitle counsel-section__subtitle--governed" variants={revealUp}>
+            All counsel activity is recorded, identity-linked, and preserved in an audit-ready format.
           </motion.p>
 
           <motion.div className="counsel-grid counsel-grid--threeCols" variants={staggerContainer}>
@@ -394,19 +412,30 @@ export default function Counsel() {
           </motion.div>
 
           <motion.div className="counsel-governance-strip" variants={revealUp}>
-            {governanceStripCards.map((card, i) => {
+            {governanceStripCards.map((card) => {
               const Icon = card.icon
               return (
-                <Fragment key={card.title}>
-                  {i > 0 && <span className="counsel-governance-strip__divider" aria-hidden="true" />}
-                  <div className="counsel-governance-strip__item">
-                    <div className="counsel-governance-strip__header">
-                      <Icon size={18} strokeWidth={2.1} className="counsel-governance-strip__icon" />
-                      <h3>{card.title}</h3>
-                    </div>
-                    <p>{card.description}</p>
+                <div key={card.title} className="counsel-governance-strip__item">
+                  <div className="counsel-governance-strip__header">
+                    {card.title === 'Time-Stamped' ? (
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="counsel-governance-strip__icon" style={{ flexShrink: 0 }}>
+                        <g clipPath="url(#clip0_308_17185)">
+                          <path d="M10 5V10L13.3333 11.6667" stroke="#C79A3B" strokeWidth="1.66667" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M9.9974 18.3327C14.5998 18.3327 18.3307 14.6017 18.3307 9.99935C18.3307 5.39698 14.5998 1.66602 9.9974 1.66602C5.39502 1.66602 1.66406 5.39698 1.66406 9.99935C1.66406 14.6017 5.39502 18.3327 9.9974 18.3327Z" stroke="#C79A3B" strokeWidth="1.66667" strokeLinecap="round" strokeLinejoin="round"/>
+                        </g>
+                        <defs>
+                          <clipPath id="clip0_308_17185">
+                            <rect width="20" height="20" fill="white"/>
+                          </clipPath>
+                        </defs>
+                      </svg>
+                    ) : (
+                      <Icon size={20} strokeWidth={2.1} className="counsel-governance-strip__icon" />
+                    )}
+                    <h3>{card.title}</h3>
                   </div>
-                </Fragment>
+                  <p>{card.description}</p>
+                </div>
               )
             })}
           </motion.div>

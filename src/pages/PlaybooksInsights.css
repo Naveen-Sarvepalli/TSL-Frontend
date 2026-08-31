@@ -36,6 +36,25 @@
   border-color: rgba(212, 152, 42, 0.45);
 }
 
+.pi-pill--dark-text {
+  background: #EFEBE1;
+  border-color: #C79A3B;
+  font-family: 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 24px;
+  text-align: center;
+  color: #0D1B2A;
+  flex: none;
+  order: 0;
+  flex-grow: 0;
+}
+
+.pi-pill--dark-text svg {
+  color: #C79A3B;
+}
+
 .pi-pill--muted {
   background: rgba(255, 255, 255, 0.08);
   color: #f4d28a;
@@ -88,11 +107,29 @@
 }
 
 .pi-hero__subtitle {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto 12px;
+  font-family: 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 20px;
+  line-height: 28px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.pi-hero__tagline {
+  width: 100%;
   max-width: 680px;
   margin: 0 auto 28px;
-  font-size: 1rem;
-  line-height: 1.7;
-  color: rgba(255, 255, 255, 0.85);
+  font-family: 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 28px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .pi-hero__badges {
@@ -128,6 +165,10 @@
   background: #efefef;
 }
 
+.pi-section--white {
+  background: #ffffff;
+}
+
 .pi-section__eyebrow {
   text-align: center;
   margin-bottom: 16px;
@@ -142,6 +183,38 @@
   color: #111827;
 }
 
+.pi-section__title--plug-in {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 36px;
+  letter-spacing: -0.75px;
+  text-align: center;
+  color: #0D1B2A;
+}
+
+.pi-section__title--investor {
+  font-family: 'Montserrat', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 36px;
+  letter-spacing: -0.75px;
+  text-align: center;
+  color: #0D1B2A;
+}
+
+.pi-section__title--visibility {
+  font-family: 'Montserrat', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 36px;
+  letter-spacing: -0.75px;
+  text-align: center;
+  color: #0D1B2A;
+}
+
 .pi-section__subtitle {
   max-width: 720px;
   margin: 14px auto 40px;
@@ -149,6 +222,16 @@
   font-size: 0.95rem;
   line-height: 1.7;
   color: #4b5563;
+}
+
+.pi-section__subtitle--investor {
+  font-family: 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 20px;
+  line-height: 28px;
+  text-align: center;
+  color: #333333;
 }
 
 /* ── Grid ──────────────────────────────────────────────────── */
@@ -288,8 +371,16 @@
 }
 
 .pi-banner--gold {
-  border: 1px solid rgba(201, 152, 42, 0.65);
-  background: #ede8de;
+  border: 1px solid #C79A3B;
+  background: #EFEBE1;
+}
+
+.pi-banner__bold {
+  display: inline;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 28px;
+  color: #0D1B2A;
 }
 
 .pi-banner--warm {
@@ -313,19 +404,29 @@
   background: #C79A3B;
 }
 
-.pi-banner__body strong {
+.pi-banner__body strong:not(.pi-banner__bold) {
   display: block;
   margin-bottom: 5px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #111827;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 28px;
+  letter-spacing: -0.5px;
+  color: #0D1B2A;
 }
 
 .pi-banner__body p {
   margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.65;
-  color: #4b5563;
+  font-family: 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 28px;
+  color: #333333;
+  flex: none;
+  order: 1;
+  align-self: stretch;
+  flex-grow: 0;
 }
 
 /* ── Sample Playbook guides ────────────────────────────────── */
@@ -480,7 +581,7 @@
 
 /* ── Feature cards (How They Plug In) ─────────────────────── */
 .pi-feature-card {
-  background: #f3f4f6;
+  background: #F4F4F4;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
   padding: 28px 28px 24px;
@@ -517,12 +618,10 @@
 }
 
 .pi-feature-row {
-  border-top: 1px solid #e5e7eb;
   padding-top: 16px;
 }
 
 .pi-feature-row:first-child {
-  border-top: none;
   padding-top: 0;
 }
 
@@ -535,14 +634,24 @@
 }
 
 .pi-feature-row__tier-icon {
-  color: #C79A3B !important;
+  color: #0D1B2A !important;
   flex-shrink: 0;
 }
 
+.pi-feature-card--playbooks .pi-feature-row__tier-icon {
+  color: #C79A3B !important;
+}
+
 .pi-feature-row__title strong {
-  font-size: 0.95rem;
+  font-family: 'Open Sans', sans-serif;
+  font-style: normal;
   font-weight: 700;
-  color: #111827;
+  font-size: 16px;
+  line-height: 24px;
+  color: #0D1B2A;
+  flex: none;
+  order: 0;
+  flex-grow: 0;
 }
 
 .pi-feature-row p {
@@ -552,58 +661,82 @@
   color: #4b5563;
 }
 
+.pi-feature-row p strong {
+  font-weight: 700;
+  color: #4b5563;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.pi-feature-row__bold-highlight {
+  font-weight: 700;
+  color: #0D1B2A;
+  font-size: inherit;
+  line-height: inherit;
+}
+
 /* ── Plan pills (dark / gold) inside feature rows ──────────── */
 .pi-plan-pill {
   display: inline-flex;
   align-items: center;
-  padding: 3px 12px;
-  border-radius: 6px;
-  font-size: 0.78rem;
-  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-family: 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 16px;
   white-space: nowrap;
+  color: #ffffff;
 }
 
 .pi-plan-pill--dark {
-  background: #0f172a;
-  color: #ffffff;
+  background: #0D1B2A;
 }
 
 .pi-plan-pill--gold {
   background: #C79A3B;
-  color: #ffffff;
 }
 
 /* ── CTA section ───────────────────────────────────────────── */
 .pi-cta-section {
-  background: linear-gradient(180deg, #07182a 0%, #081b30 100%);
+  background: #0D1B2A;
   text-align: center;
-  margin: 0 2rem 4rem;
-  border-radius: 20px;
+  margin: 0 4rem 4rem;
+  border-radius: 16px;
   overflow: hidden;
 }
 
 .pi-cta {
   max-width: 760px;
   margin: 0 auto;
-  padding: 96px 32px;
+  padding: 80px 32px;
   text-align: center;
 }
 
 .pi-cta h2 {
   margin: 0 0 20px;
-  font-size: clamp(1.8rem, 3vw, 2.4rem);
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
+  font-family: 'Montserrat', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 36px;
+  letter-spacing: -0.75px;
+  text-align: center;
   color: #ffffff;
+  white-space: nowrap;
 }
 
 .pi-cta > p {
-  max-width: 640px;
+  max-width: 764px;
   margin: 0 auto 40px;
-  font-size: 1.05rem;
-  line-height: 1.7;
-  color: rgba(255, 255, 255, 0.75);
+  font-family: 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 20px;
+  line-height: 28px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .pi-cta__btn {
@@ -626,11 +759,15 @@
   transform: translateY(-2px);
 }
 
-.pi-cta__note {
-  margin: 28px 0 0;
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.5);
-  letter-spacing: 0.01em;
+.pi-cta .pi-cta__note {
+  margin: 24px 0 0;
+  font-family: 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 28px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* ── Responsive ────────────────────────────────────────────── */

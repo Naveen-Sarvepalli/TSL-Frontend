@@ -36,9 +36,33 @@ import { documentsApi, API_BASE_URL } from '../services/tslApi'
 import type { DocumentItem } from '../services/dashboardTypes'
 import './PlaybooksInsights.css'
 
+const ChecklistsIcon = (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M15 2H9C8.44772 2 8 2.44772 8 3V5C8 5.55228 8.44772 6 9 6H15C15.5523 6 16 5.55228 16 5V3C16 2.44772 15.5523 2 15 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M16 4H18C18.5304 4 19.0391 4.21071 19.4142 4.58579C19.7893 4.96086 20 5.46957 20 6V20C20 20.5304 19.7893 21.0391 19.4142 21.4142C19.0391 21.7893 18.5304 22 18 22H6C5.46957 22 4.96086 21.7893 4.58579 21.4142C4.21071 21.0391 4 20.5304 4 20V6C4 5.46957 4.21071 4.96086 4.58579 4.58579C4.96086 4.21071 5.46957 4 6 4H8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9 14L11 16L15 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
+const ComplianceIcon = (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M20 13.0004C20 18.0004 16.5 20.5005 12.34 21.9505C12.1222 22.0243 11.8855 22.0207 11.67 21.9405C7.5 20.5005 4 18.0004 4 13.0004V6.00045C4 5.73523 4.10536 5.48088 4.29289 5.29334C4.48043 5.10581 4.73478 5.00045 5 5.00045C7 5.00045 9.5 3.80045 11.24 2.28045C11.4519 2.09945 11.7214 2 12 2C12.2786 2 12.5481 2.09945 12.76 2.28045C14.51 3.81045 17 5.00045 19 5.00045C19.2652 5.00045 19.5196 5.10581 19.7071 5.29334C19.8946 5.48088 20 5.73523 20 6.00045V13.0004Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
+const FundraisingIcon = (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M14 17V15C14 14.4696 13.7893 13.9609 13.4142 13.5858C13.0391 13.2107 12.5304 13 12 13H9C8.46957 13 7.96086 13.2107 7.58579 13.5858C7.21071 13.9609 7 14.4696 7 15V17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M14 7.56445C14.4289 7.67565 14.8087 7.92608 15.0799 8.27648C15.351 8.62689 15.4981 9.05741 15.4981 9.50045C15.4981 9.94349 15.351 10.374 15.0799 10.7244C14.8087 11.0748 14.4289 11.3253 14 11.4365" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M17 17.0004V16.0004C16.9997 15.5573 16.8522 15.1268 16.5807 14.7766C16.3092 14.4263 15.9291 14.1762 15.5 14.0654" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M10.5 11.5C11.6046 11.5 12.5 10.6046 12.5 9.5C12.5 8.39543 11.6046 7.5 10.5 7.5C9.39543 7.5 8.5 8.39543 8.5 9.5C8.5 10.6046 9.39543 11.5 10.5 11.5Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
 const investorCards = [
   {
     icon: ClipboardList,
+    svgIcon: ChecklistsIcon,
     title: 'Checklists & Templates',
     description:
       'Step-by-step guides for common legal scenarios like hiring your first employee or preparing for fundraising',
@@ -51,18 +75,20 @@ const investorCards = [
   },
   {
     icon: ArrowRight,
-    title: 'Smart Wizard Links',
+    title: 'Smart Blueprint Links',
     description:
-      'Jump directly into the correct wizard step with pre-populated context from your playbook progress',
+      'Jump directly into the correct blueprint step with pre-populated context from your playbook progress',
   },
   {
     icon: ShieldCheck,
+    svgIcon: ComplianceIcon,
     title: 'Compliance Guidance',
     description:
       'Plain-language explanations of BCEA, LRA, POPIA, and Companies Act requirements for your situation',
   },
   {
     icon: UsersRound,
+    svgIcon: FundraisingIcon,
     title: 'Fundraising Support',
     description:
       'Investor due diligence checklists, cap table prep, and term sheet negotiation frameworks',
@@ -89,8 +115,9 @@ const playbooksByPlan = [
     TierIcon: Building2,
     label: 'Playbooks Core',
     labelClass: 'pi-plan-pill pi-plan-pill--gold',
-    description: '. Saved checklists and team notes.',
-    descriptionBold: 'Full library including Raising Funds Internationally',
+    description: 'Full library including ',
+    descriptionBold: 'Raising Funds Internationally',
+    descriptionAfter: '. Saved checklists and team notes.',
   },
   {
     tier: 'Boardroom',
@@ -132,6 +159,14 @@ const insightsByPlan = [
 const outcomeCards = [
   {
     icon: BarChart2,
+    svgIcon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M3 3V19C3 19.5304 3.21071 20.0391 3.58579 20.4142C3.96086 20.7893 4.46957 21 5 21H21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M18 17V9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M13 17V5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M8 17V14" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
     title: 'Workflow Dashboards',
     description: 'Visual overview of all your legal workflows, completion rates, and pending actions in one place',
   },
@@ -148,7 +183,7 @@ const outcomeCards = [
   {
     icon: Eye,
     title: 'Completion Analytics',
-    description: 'Monitor which wizards are completed vs. saved as drafts, helping you follow through on legal tasks',
+    description: 'Monitor which blueprints are completed vs. saved as drafts, helping you follow through on legal tasks',
   },
   {
     icon: Download,
@@ -175,27 +210,29 @@ export default function PlaybooksInsights() {
     'Guidance and visibility to help you make the right legal decisions without consuming runs.'
   )
 
-  const [sampleDoc, setSampleDoc] = useState<DocumentItem | null>(null)
+  const [investorDoc, setInvestorDoc] = useState<DocumentItem | null>(null)
+  const [foundersDoc, setFoundersDoc] = useState<DocumentItem | null>(null)
   const [docLoading, setDocLoading] = useState(true)
 
   useEffect(() => {
     documentsApi.list().then((res) => {
       if (res.success && res.data && res.data.length > 0) {
-        setSampleDoc(res.data[1])
+        setInvestorDoc(res.data[1] ?? null)
+        setFoundersDoc(res.data[2] ?? res.data[1] ?? null)
       }
     }).finally(() => {
       setDocLoading(false)
     })
   }, [])
 
-  function handleDownloadSample() {
-    if (!sampleDoc) return
-    const url = sampleDoc.url.startsWith('/')
-      ? `${API_BASE_URL}${sampleDoc.url}`
-      : sampleDoc.url
+  function handleDownloadDoc(doc: DocumentItem | null) {
+    if (!doc) return
+    const url = doc.url.startsWith('/')
+      ? `${API_BASE_URL}${doc.url}`
+      : doc.url
     const a = document.createElement('a')
     a.href = url
-    a.download = `${sampleDoc.name}.pdf`
+    a.download = `${doc.name}.pdf`
     a.target = '_blank'
     a.rel = 'noopener noreferrer'
     document.body.appendChild(a)
@@ -224,6 +261,9 @@ export default function PlaybooksInsights() {
           <p className="pi-hero__subtitle">
             Guidance and visibility to help you make the right legal decisions without consuming runs.
           </p>
+          <p className="pi-hero__tagline">
+            Designed to support, not replace, automated legal workflows.
+          </p>
           <div className="pi-hero__badges">
             <span className="pi-hero__badge">
               <CheckCircle2 size={14} strokeWidth={2.2} />
@@ -234,7 +274,10 @@ export default function PlaybooksInsights() {
               Does Not Consume Runs
             </span>
             <span className="pi-hero__badge">
-              <CheckCircle2 size={14} strokeWidth={2.2} />
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M1.37761 8.23224C1.32205 8.08256 1.32205 7.91792 1.37761 7.76824C1.91874 6.45614 2.83728 5.33427 4.01679 4.54484C5.19629 3.75541 6.58364 3.33398 8.00294 3.33398C9.42225 3.33398 10.8096 3.75541 11.9891 4.54484C13.1686 5.33427 14.0871 6.45614 14.6283 7.76824C14.6838 7.91792 14.6838 8.08256 14.6283 8.23224C14.0871 9.54434 13.1686 10.6662 11.9891 11.4556C10.8096 12.2451 9.42225 12.6665 8.00294 12.6665C6.58364 12.6665 5.19629 12.2451 4.01679 11.4556C2.83728 10.6662 1.91874 9.54434 1.37761 8.23224Z" stroke="#C79A3B" strokeWidth="1.33333" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M8 10C9.10457 10 10 9.10457 10 8C10 6.89543 9.10457 6 8 6C6.89543 6 6 6.89543 6 8C6 9.10457 6.89543 10 8 10Z" stroke="#C79A3B" strokeWidth="1.33333" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
               Always Available
             </span>
           </div>
@@ -250,11 +293,11 @@ export default function PlaybooksInsights() {
         variants={staggerContainer}
       >
         <div className="pi-shell">
-          <motion.h2 className="pi-section__title" variants={revealUp}>
+          <motion.h2 className="pi-section__title pi-section__title--investor" variants={revealUp}>
             Investor-Grade Legal Guidance
           </motion.h2>
-          <motion.p className="pi-section__subtitle" variants={revealUp}>
-            Checklists, calculators, and guidance notes that link directly into wizard steps — supporting your legal workflows without consuming runs.
+          <motion.p className="pi-section__subtitle pi-section__subtitle--investor" variants={revealUp}>
+            Checklists, calculators, and guidance notes that link directly into blueprint steps — supporting your legal workflows without consuming runs.
           </motion.p>
 
           <motion.div className="pi-grid pi-grid--3" variants={staggerContainer}>
@@ -263,7 +306,7 @@ export default function PlaybooksInsights() {
               return (
                 <motion.article key={card.title} className="pi-card" variants={revealUp}>
                   <span className="pi-card__icon pi-card__icon--gold">
-                    <Icon size={20} strokeWidth={2.1} />
+                    {card.svgIcon ?? <Icon size={20} strokeWidth={2.1} />}
                   </span>
                   <div className="pi-card__titleRow">
                     <h3>{card.title}</h3>
@@ -275,13 +318,23 @@ export default function PlaybooksInsights() {
           </motion.div>
 
           <motion.div className="pi-banner pi-banner--gold" variants={revealUp}>
-            <span className="pi-banner__icon">
-              <BookOpen size={16} strokeWidth={2.2} />
-            </span>
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0, marginTop: 2 }}>
+              <path d="M0 20C0 8.95431 8.95431 0 20 0C31.0457 0 40 8.95431 40 20C40 31.0457 31.0457 40 20 40C8.95431 40 0 31.0457 0 20Z" fill="#C79A3B"/>
+              <g clipPath="url(#clip-pi-info)">
+                <path d="M19.9974 28.3327C24.5998 28.3327 28.3307 24.6017 28.3307 19.9993C28.3307 15.397 24.5998 11.666 19.9974 11.666C15.395 11.666 11.6641 15.397 11.6641 19.9993C11.6641 24.6017 15.395 28.3327 19.9974 28.3327Z" stroke="white" strokeWidth="1.66667" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M20 16.666V19.9993" stroke="white" strokeWidth="1.66667" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M20 23.334H20.0083" stroke="white" strokeWidth="1.66667" strokeLinecap="round" strokeLinejoin="round"/>
+              </g>
+              <defs>
+                <clipPath id="clip-pi-info">
+                  <rect width="20" height="20" fill="white" transform="translate(10 10)"/>
+                </clipPath>
+              </defs>
+            </svg>
             <div className="pi-banner__body">
-              <strong>Playbooks Do Not Consume Wizard Runs</strong>
+              <strong>Playbooks Do Not Consume Blueprint Runs</strong>
               <p>
-                Wizard playbooks are offered as often as needed, designed on included Dashboards your plan lets you help you make smarter decisions. They are not wizard run-counted. When you use a wizard to create a document, playbooks only help you; they don&apos;t directly use run toward counsel runs.
+                Access playbooks as often as you need. They&apos;re included based on your subscription tier and designed to <strong className="pi-banner__bold">support</strong> your legal workflows, not consume billable units. When you&apos;re ready to create a document, playbooks can jump you directly into the correct blueprint step.
               </p>
             </div>
           </motion.div>
@@ -298,10 +351,10 @@ export default function PlaybooksInsights() {
       >
         <div className="pi-shell">
           <motion.div className="pi-section__eyebrow" variants={revealUp}>
-            <Link to="/playbooks" className="pi-pill pi-pill--light">
+            <span className="pi-pill pi-pill--light pi-pill--dark-text">
               <Download size={13} strokeWidth={2.2} />
               Sample Playbooks
-            </Link>
+            </span>
           </motion.div>
           <motion.h2 className="pi-section__title" variants={revealUp}>
             Practical Guides for Investors and Founders
@@ -337,15 +390,15 @@ export default function PlaybooksInsights() {
                 </li>
               </ul>
               <div className="pi-guide__btn-wrap">
-                 <button
-                   className="pi-guide__btn"
-                   onClick={handleDownloadSample}
-                   disabled={docLoading || !sampleDoc}
-                 >
-                   <Download size={16} strokeWidth={2.2} />
-                   {docLoading ? 'Loading…' : 'Download Sample'}
-                 </button>
-               </div>
+                <button
+                  className="pi-guide__btn"
+                  onClick={() => handleDownloadDoc(investorDoc)}
+                  disabled={docLoading || !investorDoc}
+                >
+                  <Download size={16} strokeWidth={2.2} />
+                  {docLoading ? 'Loading…' : 'Download Sample'}
+                </button>
+              </div>
              </motion.article>
 
              <motion.article className="pi-guide" variants={revealUp}>
@@ -373,16 +426,16 @@ export default function PlaybooksInsights() {
                    <span>Instant download</span>
                  </li>
                </ul>
-               <div className="pi-guide__btn-wrap">
-                 <button
-                   className="pi-guide__btn"
-                   onClick={handleDownloadSample}
-                   disabled={docLoading || !sampleDoc}
-                 >
-                   <Download size={16} strokeWidth={2.2} />
-                   {docLoading ? 'Loading…' : 'Download Sample'}
-                 </button>
-               </div>
+              <div className="pi-guide__btn-wrap">
+                <button
+                  className="pi-guide__btn"
+                  onClick={() => handleDownloadDoc(foundersDoc)}
+                  disabled={docLoading || !foundersDoc}
+                >
+                  <Download size={16} strokeWidth={2.2} />
+                  {docLoading ? 'Loading…' : 'Download Sample'}
+                </button>
+              </div>
              </motion.article>
           </motion.div>
         </div>
@@ -390,23 +443,23 @@ export default function PlaybooksInsights() {
 
       {/* ── How They Plug In ──────────────────────────────────────── */}
       <motion.section
-        className="pi-section pi-section--soft"
+        className="pi-section pi-section--white"
         initial="hidden"
         whileInView="visible"
         viewport={defaultViewport}
         variants={staggerContainer}
       >
         <div className="pi-shell">
-          <motion.h2 className="pi-section__title" variants={revealUp}>
+          <motion.h2 className="pi-section__title pi-section__title--plug-in" variants={revealUp}>
             Playbooks and Insights: How They Plug In
           </motion.h2>
           <motion.p className="pi-section__subtitle" variants={revealUp}>
-            Playbooks are investor-grade guidance with checklists, calculators, and links that jump into the correct wizard step. They do not consume runs.
+            Playbooks are investor-grade guidance with checklists, calculators, and links that jump into the correct blueprint step. They do not consume runs.
           </motion.p>
 
           <motion.div className="pi-grid pi-grid--2" variants={staggerContainer}>
             {/* Playbooks by Plan */}
-            <motion.article className="pi-feature-card" variants={revealUp}>
+            <motion.article className="pi-feature-card pi-feature-card--playbooks" variants={revealUp}>
               <div className="pi-feature-card__header">
                 <span className="pi-feature-card__icon-wrap">
                   <BookOpen size={22} strokeWidth={2} />
@@ -424,8 +477,9 @@ export default function PlaybooksInsights() {
                         <span className={row.labelClass}>{row.label}</span>
                       </div>
                       <p>
-                        {row.descriptionBold && <strong>{row.descriptionBold}</strong>}
                         {row.description}
+                        {row.descriptionBold && <strong className="pi-feature-row__bold-highlight">{row.descriptionBold}</strong>}
+                        {'descriptionAfter' in row && (row as any).descriptionAfter}
                       </p>
                     </div>
                   )
@@ -437,7 +491,12 @@ export default function PlaybooksInsights() {
             <motion.article className="pi-feature-card" variants={revealUp}>
               <div className="pi-feature-card__header">
                 <span className="pi-feature-card__icon-wrap">
-                  <BarChart2 size={22} strokeWidth={2} />
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M3 3V19C3 19.5304 3.21071 20.0391 3.58579 20.4142C3.96086 20.7893 4.46957 21 5 21H21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M18 17V9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M13 17V5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M8 17V14" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 </span>
                 <h3>Insights by Plan</h3>
               </div>
@@ -474,12 +533,17 @@ export default function PlaybooksInsights() {
       >
         <div className="pi-shell">
           <motion.div className="pi-section__eyebrow" variants={revealUp}>
-            <span className="pi-pill pi-pill--light">
-              <BarChart2 size={13} strokeWidth={2.2} />
+            <span className="pi-pill pi-pill--light pi-pill--dark-text">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M2.25 2.25V14.25C2.25 14.6478 2.40804 15.0294 2.68934 15.3107C2.97064 15.592 3.35218 15.75 3.75 15.75H15.75" stroke="#C79A3B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M13.5 12.75V6.75" stroke="#C79A3B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9.75 12.75V3.75" stroke="#C79A3B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M6 12.75V10.5" stroke="#C79A3B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
               Insights
             </span>
           </motion.div>
-          <motion.h2 className="pi-section__title" variants={revealUp}>
+          <motion.h2 className="pi-section__title pi-section__title--visibility" variants={revealUp}>
             Visibility Into Outcomes, Not Just Activity
           </motion.h2>
           <motion.p className="pi-section__subtitle" variants={revealUp}>
@@ -492,7 +556,7 @@ export default function PlaybooksInsights() {
               return (
                 <motion.article key={card.title} className="pi-outcome-card" variants={revealUp}>
                   <span className="pi-outcome-card__icon">
-                    <Icon size={22} strokeWidth={2} />
+                    {(card as any).svgIcon ?? <Icon size={22} strokeWidth={2} />}
                   </span>
                   <h3>{card.title}</h3>
                   <p>{card.description}</p>
@@ -506,9 +570,9 @@ export default function PlaybooksInsights() {
               <AlertCircle size={16} strokeWidth={2.2} />
             </span>
             <div className="pi-banner__body">
-              <strong>Insights Do Not Consume Wizard Runs</strong>
+              <strong>Insights Do Not Consume Blueprint Runs</strong>
               <p>
-                View your insights dashboards and export reports as often as needed. Analytics are included based on your plan tier and help you understand your legal workflow performance- completely separate from billable wizard runs.
+                View your insights dashboards and export reports as often as needed. Analytics are included based on your plan tier and help you understand your legal workflow performance- completely separate from billable blueprint runs.
               </p>
             </div>
           </motion.div>

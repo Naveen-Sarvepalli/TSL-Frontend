@@ -4,7 +4,7 @@ import './DetailFooter.css'
 
 const footerGroups = {
   'Quick Links': ['About Us', 'How It Works', 'Pricing', 'FAQ', 'Contact'],
-  Services: ['Wizards', 'Get Counsel', 'Playbooks', 'CIPC Services', 'Company Registration'],
+  Services: ['Blueprints', 'Get Counsel', 'Playbooks', 'CIPC Services', 'Company Registration'],
   Legal: ['Privacy Policy', 'Terms & Conditions', 'POPIA Compliance', 'Refund Policy'],
 }
 
@@ -18,8 +18,10 @@ const sectionAnchors: Record<string, string> = {
 const routeLinks: Record<string, string> = {
   'Get Counsel': '/counsel',
   Playbooks: '/playbooks-insights',
-  Wizards: '/wizard-catalogue'
+  Blueprints: '/wizard-catalogue'
 }
+
+const noLink = new Set(['CIPC Services', 'Company Registration', 'Terms & Conditions', 'POPIA Compliance', 'Refund Policy', 'Privacy Policy'])
 
 function handleSectionClick(sectionId: string) {
   return (e: MouseEvent<HTMLAnchorElement>) => {
@@ -87,6 +89,9 @@ export function DetailFooter() {
             <nav className="detail-footer__group" key={title}>
               <h3>{title}</h3>
               {links.map((link) => {
+                if (noLink.has(link)) {
+                  return <span key={link}>{link}</span>
+                }
                 const sectionId = sectionAnchors[link]
                 const href = sectionId ? `/#${sectionId}` : (routeLinks[link] ?? '/contact')
                 return (
