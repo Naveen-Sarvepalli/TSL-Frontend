@@ -9,7 +9,6 @@ import {
   Lock,
   CircleAlert,
   CircleCheck,
-  CircleDot,
   CircleX,
   Clock3,
   Eye,
@@ -22,7 +21,6 @@ import {
   Timer,
   UserCheck,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import { ContactSection } from '../components/home/ContactSection'
 import { defaultViewport, revealUp, staggerContainer } from '../hooks/useScrollReveal'
 import { setPageMetadata } from '../services/metadata'
@@ -288,7 +286,7 @@ export default function Counsel() {
       >
         <div className="counsel-shell">
           <motion.div className="counsel-section__eyebrowWrap" variants={revealUp}>
-            <span className="counsel-pill counsel-pill--light">
+            <span className="counsel-pill counsel-pill--light counsel-pill--when-involved">
               <Target size={14} strokeWidth={2.1} />
               When Counsel Is Involved
             </span>
@@ -456,10 +454,10 @@ export default function Counsel() {
               We&apos;re building attorney support into The StartUp Legal platform. Join our
               early access list to be notified when Counsel becomes available.
             </p>
-            <Link to="/contact" className="counsel-cta__button">
+            <button type="button" className="counsel-cta__button">
               Join Early Access List
               <ArrowRight size={18} strokeWidth={2.2} />
-            </Link>
+            </button>
             <p className="counsel-cta__note">No obligation • Be the first to know when Counsel launches</p>
           </div>
         </div>
