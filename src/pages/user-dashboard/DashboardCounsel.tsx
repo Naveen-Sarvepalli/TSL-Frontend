@@ -18,6 +18,7 @@ import './Dashboard.css'
 import './DashboardCounsel.css'
 
 const wizardAccessCacheKey = 'tsl-wizard-access-cache'
+const counselCreditsSessionKey = 'tsl-counsel-credits-session'
 
 type CounselFormData = {
   subject: string
@@ -28,6 +29,7 @@ type CounselFormData = {
 const ALLOWED_TYPES = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
 const ALLOWED_EXT = ['.pdf', '.docx']
 const MAX_FILE_SIZE = 4 * 1024 * 1024 // 4 MB
+const DESCRIPTION_MAX_LENGTH = 500
 
 type CounselHistoryRequest = {
   requestId: string
@@ -64,40 +66,31 @@ type CreatedCounselRequest = {
 type CounselRequestResponse = CounselRequest[] | { requests?: CounselRequest[] }
 
 const fallbackCredits: CounselCredits = {
-  plan: 'Boardroom',
-  includedCredits: 6,
-  creditsTotal: 6,
-  creditsUsed: 1,
-  creditsRemaining: 2,
-  usageThisMonth: 1,
-  topUpRate: 450,
+  plan: 'Free',
+  includedCredits: 0,
+  creditsTotal: 0,
+  creditsUsed: 0,
+  creditsRemaining: 0,
+  usageThisMonth: 0,
+  topUpRate: 500,
   currency: 'ZAR',
-  resetDate: '2026-02-01',
+  resetDate: '',
 }
 
-const fallbackHistory: CounselHistoryRequest[] = [
-  {
-    requestId: 'fallback-1',
-    title: 'NDA Review - Tech Partnership',
-    date: 'Dec 15, 2025',
-    reviewer: 'Reviewed by Sarah Naidoo',
-    status: 'In Progress',
-  },
-  {
-    requestId: 'fallback-2',
-    title: 'NDA Review - Tech Partnership',
-    date: 'Dec 15, 2025',
-    reviewer: 'Reviewed by Sarah Naidoo',
-    status: 'Completed',
-  },
-  {
-    requestId: 'fallback-3',
-    title: 'NDA Review - Tech Partnership',
-    date: 'Dec 15, 2025',
-    reviewer: 'Reviewed by Sarah Naidoo',
-    status: 'Completed',
-  },
-]
+/** Read persisted credits from sessionStorage (survives React remounts / tab switches). */
+function readSessionCredits(): CounselCredits | null {
+  try {
+    const raw = sessionStorage.getItem(counselCreditsSessionKey)
+    return raw ? (JSON.parse(raw) as CounselCredits) : null
+  } catch { return null }
+}
+
+/** Persist the latest credits to sessionStorage so remounts keep the correct count. */
+function writeSessionCredits(credits: CounselCredits) {
+  try { sessionStorage.setItem(counselCreditsSessionKey, JSON.stringify(credits)) } catch { /* ignore */ }
+}
+
+const fallbackHistory: CounselHistoryRequest[] = []
 
 function formatRequestDate(value?: string) {
   if (!value) return 'Today'
@@ -193,7 +186,9 @@ export default function DashboardCounsel() {
   const [activeTab, setActiveTab] = useState<'book' | 'history'>(() =>
     hasSubscription ? 'book' : 'history',
   )
-  const [credits, setCredits] = useState<CounselCredits>(fallbackCredits)
+  // Seed from sessionStorage so that navigating back to this page (which unmounts/remounts
+  // the component) preserves any in-session decrements without a server round-trip.
+  const [credits, setCredits] = useState<CounselCredits>(() => readSessionCredits() ?? fallbackCredits)
   const [history, setHistory] = useState<CounselHistoryRequest[]>(fallbackHistory)
   const [formData, setFormData] = useState<CounselFormData>({
     subject: '',
@@ -244,7 +239,19 @@ export default function DashboardCounsel() {
       if (!isMounted) return
 
       if (creditsResponse.success && creditsResponse.data) {
-        setCredits(creditsResponse.data)
+        const serverCredits = creditsResponse.data
+        setCredits((current) => {
+          // If we already have a session-persisted value that is LOWER than what the
+          // server reports, keep the local (decremented) value — the server is stale.
+          // Only accept the server value when it's lower (real server deduction) or
+          // when this is a fresh session (current === fallbackCredits, creditsRemaining 0).
+          const hasSessionValue = current.creditsRemaining !== fallbackCredits.creditsRemaining
+            || current.creditsUsed !== fallbackCredits.creditsUsed
+          const serverIsLower = serverCredits.creditsRemaining < current.creditsRemaining
+          const merged = (hasSessionValue && !serverIsLower) ? current : serverCredits
+          writeSessionCredits(merged)
+          return merged
+        })
       }
 
       if (requestsResponse.success) {
@@ -266,10 +273,6 @@ export default function DashboardCounsel() {
     const errors: string[] = []
 
     for (const file of incoming) {
-      if (attachments.length + valid.length >= 1) {
-        errors.push('A counsel request can contain only one document.')
-        continue
-      }
       const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
       if (!ALLOWED_TYPES.includes(file.type) && !ALLOWED_EXT.includes(ext)) {
         errors.push(`"${file.name}" is not a PDF or DOCX file.`)
@@ -318,20 +321,16 @@ export default function DashboardCounsel() {
       return
     }
 
+    if (!formData.relatedWizard) {
+      setErrorMessage('Choose the wizard document to be reviewed before submitting a counsel request.')
+      return
+    }
+
     const creditsRequired = 1
     if (credits.creditsRemaining < creditsRequired) {
       setErrorMessage('You do not have any counsel credits remaining. Please top up before submitting.')
       return
     }
-    if (!formData.relatedWizard) {
-      setErrorMessage('Choose the wizard document to be reviewed before submitting a counsel request.')
-      return
-    }
-    if (attachments.length !== 1) {
-      setErrorMessage('A counsel request must include exactly one document.')
-      return
-    }
-
     submitInFlightRef.current = true
     setIsSubmitting(true)
 
@@ -370,20 +369,18 @@ export default function DashboardCounsel() {
       }
 
       setHistory((current) => [createdRequest, ...current])
-      setCredits((current) => ({
-        ...current,
-        creditsRemaining:
-          typeof created?.creditsRemaining === 'number'
-            ? created.creditsRemaining
-            : Math.max(current.creditsRemaining - creditsRequired, 0),
-        creditsUsed: current.creditsUsed + creditsRequired,
-        usageThisMonth: current.usageThisMonth + creditsRequired,
-      }))
-
-      const refreshedCredits = await counselApi.credits()
-      if (refreshedCredits.success && refreshedCredits.data) {
-        setCredits(refreshedCredits.data)
-      }
+      // Always decrement by 1 from current local state and persist to sessionStorage
+      // so remounts (sidebar navigation) preserve the correct remaining count.
+      setCredits((current) => {
+        const updated = {
+          ...current,
+          creditsRemaining: Math.max(current.creditsRemaining - creditsRequired, 0),
+          creditsUsed: current.creditsUsed + creditsRequired,
+          usageThisMonth: current.usageThisMonth + creditsRequired,
+        }
+        writeSessionCredits(updated)
+        return updated
+      })
 
       setFormData({
         subject: '',
@@ -406,9 +403,6 @@ export default function DashboardCounsel() {
       <main className="dashboard-counsel">
         <header className="dashboard-counsel__header">
           <BackButton to="/dashboard" label="Back to Dashboard" />
-          <span className="dashboard-counsel__header-marker" aria-hidden="true">
-            <Scale size={18} />
-          </span>
           <div>
             <h1>Counsel</h1>
             <p>Connect with experienced attorneys for expert guidance</p>
@@ -533,18 +527,24 @@ export default function DashboardCounsel() {
                   />
                 </label>
 
-                <label className="dashboard-counsel__field">
-                  <span>Description</span>
+                <div className="dashboard-counsel__field">
+                  <span className="dashboard-counsel__label-row">
+                    <span>Description <span style={{ color: '#c0392b' }}>*</span></span>
+                    <small style={{ color: formData.description.length >= DESCRIPTION_MAX_LENGTH ? '#c0392b' : '#6d6d6d' }}>
+                      {formData.description.length}/{DESCRIPTION_MAX_LENGTH}
+                    </small>
+                  </span>
                   <textarea
                     aria-label="Description"
                     value={formData.description}
+                    maxLength={DESCRIPTION_MAX_LENGTH}
                     onChange={(event) => handleFieldChange('description', event.target.value)}
                   />
-                </label>
+                </div>
 
                 <div className="dashboard-counsel__field">
                   <span className="dashboard-counsel__label-row">
-                    Document for review
+                    <span>Document for review <small style={{ color: '#6d6d6d', fontWeight: 400 }}>(optional)</small></span>
                     <small>
                       <Upload size={14} />
                       One PDF or DOCX • Max 4MB
@@ -598,7 +598,7 @@ export default function DashboardCounsel() {
                 </div>
 
                 <label className="dashboard-counsel__field">
-                  <span>Related Wizard</span>
+                  <span>Related Wizard <span style={{ color: '#c0392b' }}>*</span></span>
                   <select
                     aria-label="Related Wizard"
                     value={formData.relatedWizard}
@@ -672,7 +672,6 @@ export default function DashboardCounsel() {
             // Pass current credits so the payment page can show used/remaining
             navigate('/dashboard/counsel/topup', { state: { plan, credits } })
           }}
-          onManagePlans={() => navigate('/dashboard/settings')}
         />
 
         {activeModal === 'upgrade-plans' && (

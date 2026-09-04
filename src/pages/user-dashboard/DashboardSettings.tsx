@@ -10,7 +10,6 @@ import {
   Loader2,
   Plus,
   Receipt,
-  Settings,
   Smartphone,
   WalletCards,
   Zap,
@@ -39,7 +38,7 @@ import './DashboardSettings.css'
 
 function downloadInvoicePdf(inv: BillingHistoryInvoice) {
   function fmtZAR(n: number) {
-    return `R${n.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    return `R${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
   const pm = inv.paymentMethod
     ? `${inv.paymentMethod.brand} •••• ${inv.paymentMethod.last4}`
@@ -413,9 +412,6 @@ export default function DashboardSettings() {
 
         <header className="dashboard-settings__header">
           <BackButton to="/dashboard" label="Back to Dashboard" />
-          <span className="dashboard-settings__header-marker" aria-hidden="true">
-            <Settings size={18} />
-          </span>
           <div>
             <h1>Settings</h1>
             <p>Manage your account, billing, and notification preferences</p>
@@ -542,7 +538,7 @@ export default function DashboardSettings() {
                           <p>{planTagline}</p>
                         </div>
                         <div className="dashboard-settings__price">
-                          <strong>R{planPrice.toLocaleString('en-ZA')}</strong>
+                          <strong>R{planPrice.toLocaleString('en-US')}</strong>
                           <span>per month</span>
                         </div>
                       </div>
@@ -574,14 +570,14 @@ export default function DashboardSettings() {
                       {pendingDowngrade && (
                         <p className="bs-plan-next-charge">
                           Upcoming: <strong>{pendingDowngrade.toPlanName} plan</strong>,
-                          R{plans.find(p => p.planId === pendingDowngrade.toPlanId)?.price.toLocaleString('en-ZA') ?? '—'}/mo,
+                          R{plans.find(p => p.planId === pendingDowngrade.toPlanId)?.price.toLocaleString('en-US') ?? '—'}/mo,
                           starts {formatDate(pendingDowngrade.effectiveDate)}
                         </p>
                       )}
 
                       {!pendingDowngrade && upgradeResult && (
                         <p className="bs-plan-next-charge">
-                          Next charge: full R{planPrice.toLocaleString('en-ZA')} on{' '}
+                          Next charge: full R{planPrice.toLocaleString('en-US')} on{' '}
                           {formatDate(nextBillingDate)} — no further action needed
                         </p>
                       )}
@@ -724,7 +720,7 @@ export default function DashboardSettings() {
                           <p>{invoice.plan} · {invoice.invoiceDate}</p>
                         </div>
                         <div className="bs-invoice-amount">
-                          <strong>R{invoice.total.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                          <strong>R{invoice.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                           <span className={`bs-invoice-status bs-invoice-status--${invoice.status}`}>
                             {invoice.status.toUpperCase()}
                           </span>
@@ -760,15 +756,15 @@ export default function DashboardSettings() {
               <dl>
                 <div>
                   <dt>Subscription</dt>
-                  <dd>R{planPrice.toLocaleString('en-ZA')}</dd>
+                  <dd>R{planPrice.toLocaleString('en-US')}</dd>
                 </div>
                 <div>
                   <dt>Tax (15%)</dt>
-                  <dd>R{tax.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
+                  <dd>R{tax.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
                 </div>
                 <div>
                   <dt>Total</dt>
-                  <dd>R{totalInv.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
+                  <dd>R{totalInv.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
                 </div>
               </dl>
             </section>

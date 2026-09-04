@@ -162,8 +162,11 @@ const plans: Record<PlanKey, {
   price: string
   description: string
   icon: LucideIcon
-  includes: string[]
   includesLabel: string
+  col1: string[]
+  col2: string[]
+  col3: string[]
+  excluded: string[]
 }> = {
   Launchpad: {
     title: 'Launchpad Plan',
@@ -171,40 +174,74 @@ const plans: Record<PlanKey, {
     description: 'Perfect for startups and individuals with essential legal needs',
     icon: Rocket,
     includesLabel: "What's Included in Launchpad:",
-    includes: [
-      '4 Blueprint Units per month',
-      '0 Counsel Credits per month',
-      'Standard support (48-72h response)',
-      '1GB document storage',
-      'PDF export',
+    col1: [
+      'For founders setting the company up and putting the first documents in place',
+      'All five Blueprints',
+      '4 Blueprint run units per month',
+      'Additional run units: R149 each',
+      'No run-unit rollover; unused units expire at the end of the billing month',
+    ],
+    col2: [
+      'No Counsel credits included',
+      'Additional Counsel credits: R550 per credit (30 minutes of attorney time)',
+      'Email support: response within 48 business hours',
+      '1 user',
+      'Document storage: 12 months from generation',
+    ],
+    col3: [],
+    excluded: [
+      'Counsel credits',
+      'Additional users',
     ],
   },
   Operator: {
     title: 'Operator Plan',
     price: 'R1,499',
-    description: 'For growing businesses with ongoing legal needs',
+    description: 'For businesses that are trading and hiring, and generating documents regularly',
     icon: Building2,
     includesLabel: "What's Included in Operator:",
-    includes: [
-      '12 Blueprint Units per month',
-      '2 Counsel Credits per month',
-      'Priority support (24-48h response)',
-      'Unlimited document storage',
-      'API access for integrations',
+    col1: [
+      'For businesses that are trading and hiring, and generating documents regularly',
+      'All five Blueprints',
+      '12 Blueprint run units per month',
+      'Additional run units: R149 each',
+      'No run-unit rollover; unused units expire at the end of the billing month',
+    ],
+    col2: [
+      '2 Counsel credits per month (1 hour of attorney time); unused credits expire at month end',
+      'Additional Counsel credits: R550 per credit',
+      'Priority support: response within 24 business hours',
+      '3 users',
+      'Document storage: life of the subscription',
+    ],
+    col3: [],
+    excluded: [
+      'Additional users beyond 3',
     ],
   },
   Boardroom: {
     title: 'Boardroom Plan',
     price: 'R3,999',
-    description: 'Enterprise-grade legal coverage for large organisations',
+    description: 'For established companies that need high-volume documents and regular attorney access',
     icon: Crown,
     includesLabel: "What's Included in Boardroom:",
-    includes: [
-      '30 Blueprint Units per month',
-      '6 Counsel Credits per month',
-      'Dedicated support (SLA)',
-      'Unlimited document storage',
-      'API access + white-label options',
+    col1: [
+      'For established companies that need high-volume documents and regular attorney access',
+      'All five Blueprints',
+      '30 Blueprint run units per month',
+      'Additional run units: R149 each',
+      'No run-unit rollover; unused units expire at the end of the billing month',
+    ],
+    col2: [
+      '6 Counsel credits per month (3 hours of attorney time); unused credits expire at month end',
+      'Additional Counsel credits: R550 per credit',
+      'Dedicated support with SLA',
+      'Unlimited users',
+      'Document storage: life of the subscription',
+    ],
+    col3: [],
+    excluded: [
+      'Additional users beyond 10',
     ],
   },
 }
@@ -223,8 +260,6 @@ function getStoredUserEmail() {
   }
 }
 
-const planFeatures = ['Unlimited runs', 'Priority processing', 'Advanced customisation', 'Bulk operations']
-
 const pricingComparisonPlans = [
   {
     title: 'Launchpad',
@@ -232,41 +267,52 @@ const pricingComparisonPlans = [
     icon: FileText,
     highlighted: true,
     features: [
-      { label: '5 essential wizards', included: true },
-      { label: '3 runs per wizard/month', included: true },
-      { label: 'Basic email support', included: true },
-      { label: '6 months storage', included: true },
-      { label: 'No API access', included: false },
-      { label: 'No white-label', included: false },
+      { label: 'All five Blueprints', included: true },
+      { label: '4 Blueprint run units per month', included: true },
+      { label: 'Additional run units: R149 each', included: true },
+      { label: 'No run-unit rollover; unused units expire at end of billing month', included: true },
+      { label: 'No Counsel credits included', included: true },
+      { label: 'Additional Counsel credits: R550 per credit (30 min of attorney time)', included: true },
+      { label: 'Email support: response within 48 business hours', included: true },
+      { label: '1 user', included: true },
+      { label: 'Document storage: 12 months from generation', included: true },
+      { label: 'Counsel credits', included: false },
+      { label: 'Additional users', included: false },
     ],
   },
   {
     title: 'Operator',
-    price: 'R999',
+    price: 'R1,499',
     icon: ShoppingCart,
     popular: true,
     features: [
-      { label: 'All 12 legal wizards', included: true },
-      { label: 'Unlimited runs', included: true },
-      { label: 'Priority support (24-48hr)', included: true },
-      { label: 'Unlimited storage', included: true },
-      { label: 'API access', included: true },
-      { label: 'No white-label', included: false },
+      { label: 'All five Blueprints', included: true },
+      { label: '12 Blueprint run units per month', included: true },
+      { label: 'Additional run units: R149 each', included: true },
+      { label: 'No run-unit rollover; unused units expire at end of billing month', included: true },
+      { label: '2 Counsel credits per month (1 hour of attorney time); unused credits expire at month end', included: true },
+      { label: 'Additional Counsel credits: R550 per credit', included: true },
+      { label: 'Priority support: response within 24 business hours', included: true },
+      { label: '3 users', included: true },
+      { label: 'Document storage: life of the subscription', included: true },
+      { label: 'Additional users beyond 3', included: false },
     ],
   },
   {
     title: 'Boardroom',
-    price: 'R2,499',
-    icon: ShoppingCart,
+    price: 'R3,999',
+    icon: Crown,
     features: [
-      { label: 'All 30 legal wizards', included: true },
-      { label: 'Unlimited runs', included: true },
-      { label: 'Dedicated support (SLA)', included: true },
-      { label: 'Unlimited storage', included: true },
-      { label: 'API access', included: true },
-      { label: 'White-label options', included: true },
-      { label: 'Custom workflows', included: true },
-      { label: 'Custom wizard development', included: true },
+      { label: 'All five Blueprints', included: true },
+      { label: '30 Blueprint run units per month', included: true },
+      { label: 'Additional run units: R149 each', included: true },
+      { label: 'No run-unit rollover; unused units expire at end of billing month', included: true },
+      { label: '6 Counsel credits per month (3 hours of attorney time); unused credits expire at month end', included: true },
+      { label: 'Additional Counsel credits: R550 per credit', included: true },
+      { label: 'Dedicated support with SLA', included: true },
+      { label: 'Unlimited users', included: true },
+      { label: 'Document storage: life of the subscription', included: true },
+      { label: 'Additional users beyond 10', included: false },
     ],
   },
 ]
@@ -887,7 +933,7 @@ export default function DashboardWizardDetails() {
             }}
           >
             <ArrowLeft size={18} />
-            Back to Wizards
+            Back to Blueprints
           </button>
         </div>
 
@@ -923,7 +969,7 @@ export default function DashboardWizardDetails() {
                   <WandSparkles size={16} />
                   Selection
                 </span>
-                <h1>Blueprints Wizards</h1>
+                <h1>Blueprints</h1>
               </div>
               <span className="dashboard-wizard-details__count">
                 <ShoppingCart size={16} />
@@ -1020,26 +1066,32 @@ export default function DashboardWizardDetails() {
                     </div>
                   </div>
 
-                  <h4>Sample text for now</h4>
-                  <div className="dashboard-wizard-details__feature-grid">
-                    {planFeatures.map((feature) => (
-                      <span key={feature}>
-                        <CheckCircle2 size={18} />
-                        {feature}
-                      </span>
-                    ))}
-                  </div>
-
                   <div className="dashboard-wizard-details__operator">
                     <h5>{plan.includesLabel}</h5>
-                    <ul>
-                      {plan.includes.map((item) => (
-                        <li key={item}>
-                          <ChevronRight size={14} />
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="dashboard-wizard-details__includes-cols">
+                      <ul>
+                        {plan.col1.map((item) => (
+                          <li key={item}>
+                            <ChevronRight size={14} />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                      <ul>
+                        {plan.col2.map((item) => (
+                          <li key={item}>
+                            <ChevronRight size={14} />
+                            {item}
+                          </li>
+                        ))}
+                        {plan.excluded.map((item) => (
+                          <li key={item} className="dashboard-wizard-details__includes-excluded">
+                            <span>✕</span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
 
                   <div className="dashboard-wizard-details__pricing-footer">
@@ -1054,28 +1106,11 @@ export default function DashboardWizardDetails() {
             })()}
           </section>
 
-          <section className="dashboard-wizard-details__panel dashboard-wizard-details__included">
-            <div className="dashboard-wizard-details__section-heading">
-              <div>
-                <h2>What's Included</h2>
-              </div>
-            </div>
-
-            <div className="dashboard-wizard-details__checks">
-              {includedItems.map((item) => (
-                <span key={item}>
-                  <CheckCircle2 size={18} />
-                  {item}
-                </span>
-              ))}
-            </div>
-          </section>
-
           <section className="dashboard-wizard-details__panel dashboard-wizard-details__requirements">
             <div className="dashboard-wizard-details__section-heading">
               <div>
                 <h2>What You'll Need to Start</h2>
-                <p>Have these details ready to complete the wizard quickly.</p>
+                <p>Have these details ready to complete the blueprint quickly.</p>
               </div>
             </div>
 
@@ -1092,7 +1127,7 @@ export default function DashboardWizardDetails() {
           <section className="dashboard-wizard-details__panel dashboard-wizard-details__workflow">
             <div className="dashboard-wizard-details__section-heading">
               <div>
-                <h2>How the Wizard Works</h2>
+                <h2>How the Blueprint Works</h2>
               </div>
             </div>
 
@@ -1199,7 +1234,7 @@ export default function DashboardWizardDetails() {
             blueprintName={insufficientUnits.blueprintName}
             remaining={insufficientUnits.remaining}
             required={insufficientUnits.required}
-            pricePerUnit={250}
+            pricePerUnit={149}
             iconName={insufficientUnits.iconName}
             onClose={() => setInsufficientUnits(null)}
             onUpgrade={() => { setInsufficientUnits(null); setIsPaymentView(true) }}

@@ -9,29 +9,46 @@ import type { ActiveSession } from '../../services/tslApi'
 import { setPageMetadata } from '../../services/metadata'
 import { useUserProfile } from '../../context/UserProfileContext'
 import type { UserProfile } from '../../context/UserProfileContext'
+import { useBillingSubscription } from '../../hooks/useBillingSubscription'
 import './Dashboard.css'
 import './DashboardProfile.css'
 
 type ProfileTab = 'information' | 'security' | 'preferences'
 
-function isValidSaId(idNumber: string) {
+function isValidSaId(idNumber: string): boolean {
   if (!/^\d{13}$/.test(idNumber)) return false
-  const digits = idNumber.split('').map(Number)
+
+  // Validate date of birth (YYMMDD)
+  const mm = parseInt(idNumber.slice(2, 4), 10)
+  const dd = parseInt(idNumber.slice(4, 6), 10)
+  const yy = parseInt(idNumber.slice(0, 2), 10)
+  if (mm < 1 || mm > 12) return false
+  const daysInMonth = new Date(2000 + yy, mm, 0).getDate()
+  if (dd < 1 || dd > daysInMonth) return false
+
+  // Citizenship digit (index 10) must be 0 or 1
+  const citizenship = parseInt(idNumber[10], 10)
+  if (citizenship !== 0 && citizenship !== 1) return false
+
+  // Luhn check: sum over first 12 digits, double every second digit (1-indexed even positions)
   let sum = 0
-  for (let index = 0; index < 13; index += 1) {
-    let digit = digits[12 - index]
-    if (index % 2 === 1) {
+  for (let i = 0; i < 12; i++) {
+    let digit = parseInt(idNumber[i], 10)
+    if (i % 2 !== 0) {
       digit *= 2
       if (digit > 9) digit -= 9
     }
     sum += digit
   }
-  return sum % 10 === 0
+  const checkDigit = (10 - (sum % 10)) % 10
+  return checkDigit === parseInt(idNumber[12], 10)
 }
 
 export default function DashboardProfile() {
   const navigate = useNavigate()
   const { profile, updateProfile } = useUserProfile()
+  const { subscription } = useBillingSubscription()
+  const planName = subscription?.planName ?? 'Free'
   const [activeTab, setActiveTab] = useState<ProfileTab>('information')
   const [formData, setFormData] = useState<UserProfile>(profile)
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null)
@@ -41,6 +58,7 @@ export default function DashboardProfile() {
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [legalNameError, setLegalNameError] = useState<string | null>(null)
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -183,7 +201,25 @@ export default function DashboardProfile() {
     prefMsgTimerRef.current = setTimeout(() => setPrefMessage(null), 4000)
   }
 
+  const LEGAL_NAME_MAX = 150
+  // Must contain at least one letter or digit (not special-chars-only).
+  const LEGAL_NAME_VALID = /[a-zA-Z0-9]/
+
   const handleInputChange = (field: keyof UserProfile, value: string) => {
+    if (field === 'legalName') {
+      const trimmed = value.slice(0, LEGAL_NAME_MAX)
+      if (trimmed.length > 0 && !LEGAL_NAME_VALID.test(trimmed)) {
+        setLegalNameError('Legal name must contain at least one letter or number — special characters alone are not allowed.')
+      } else if (trimmed.length > LEGAL_NAME_MAX) {
+        setLegalNameError(`Legal name cannot exceed ${LEGAL_NAME_MAX} characters.`)
+      } else {
+        setLegalNameError(null)
+      }
+      setFormData((prev) => ({ ...prev, legalName: trimmed }))
+      setSaveError(null)
+      setSaveMessage(null)
+      return
+    }
     setFormData((prev) => ({ ...prev, [field]: value }))
     setSaveError(null)
     setSaveMessage(null)
@@ -248,6 +284,16 @@ export default function DashboardProfile() {
       setSaveError('Enter a valid 13-digit South African ID number.')
       return
     }
+    if (formData.entityType !== 'Individual' && formData.legalName) {
+      if (!LEGAL_NAME_VALID.test(formData.legalName)) {
+        setLegalNameError('Legal name must contain at least one letter or number — special characters alone are not allowed.')
+        return
+      }
+      if (formData.legalName.length > LEGAL_NAME_MAX) {
+        setLegalNameError(`Legal name cannot exceed ${LEGAL_NAME_MAX} characters.`)
+        return
+      }
+    }
     if (formData.country === 'South Africa' && formData.postalCode && !/^\d{4}$/.test(formData.postalCode)) {
       setSaveError('A South African postal code must contain 4 digits.')
       return
@@ -276,9 +322,6 @@ export default function DashboardProfile() {
       <main className="dashboard-profile">
         <header className="dashboard-profile__header">
           <BackButton to="/dashboard" label="Back to Dashboard" />
-          <span className="dashboard-profile__header-marker" aria-hidden="true">
-            <UserRound size={18} />
-          </span>
           <div>
             <h1>Profile</h1>
             <p>Manage your account settings and preferences</p>
@@ -368,7 +411,7 @@ export default function DashboardProfile() {
                   <h2>{formData.legalName || formData.individualFullNames || formData.companyName || 'Your Company'}</h2>
                   <p>Company Snapshot — confirm legal data before using it in a Blueprint.</p>
                   <div>
-                    <span>Operator Plan1</span>
+                    <span>{planName} Plan</span>
                     <span>Account Active</span>
                   </div>
                 </div>
@@ -406,7 +449,7 @@ export default function DashboardProfile() {
                       <span>Full names</span>
                       <div className="dashboard-profile__input-wrap">
                         <UserRound size={18} />
-                        <input type="text" value={formData.individualFullNames} onChange={(e) => handleInputChange('individualFullNames', e.target.value)} />
+                        <input type="text" maxLength={100} value={formData.individualFullNames} onChange={(e) => handleInputChange('individualFullNames', e.target.value)} />
                       </div>
                     </label>
                     <label className="dashboard-profile__field">
@@ -418,23 +461,38 @@ export default function DashboardProfile() {
                   </>
                 ) : (
                   <>
-                    <label className="dashboard-profile__field">
-                      <span>Registered / legal name</span>
-                      <div className="dashboard-profile__input-wrap">
-                        <BriefcaseBusiness size={18} />
-                        <input type="text" value={formData.legalName} onChange={(e) => handleInputChange('legalName', e.target.value)} />
-                      </div>
-                    </label>
+                    <div className="dashboard-profile__field">
+                      <label className="dashboard-profile__field-label">
+                        <span>Registered / legal name</span>
+                        <div className={`dashboard-profile__input-wrap${legalNameError ? ' dashboard-profile__input-wrap--error' : ''}`}>
+                          <BriefcaseBusiness size={18} />
+                          <input
+                            type="text"
+                            maxLength={40}
+                            value={formData.legalName}
+                            onChange={(e) => handleInputChange('legalName', e.target.value)}
+                          />
+                        </div>
+                      </label>
+                      {legalNameError && (
+                        <p className="dashboard-profile__field-error" role="alert">
+                          {legalNameError}
+                        </p>
+                      )}
+                      <p className="dashboard-profile__field-hint">
+                        {formData.legalName.length}/{LEGAL_NAME_MAX} characters
+                      </p>
+                    </div>
                     <label className="dashboard-profile__field">
                       <span>Registration number</span>
                       <div className="dashboard-profile__input-wrap">
-                        <input type="text" value={formData.registrationNumber} onChange={(e) => handleInputChange('registrationNumber', e.target.value)} />
+                        <input type="text" maxLength={20} value={formData.registrationNumber} onChange={(e) => handleInputChange('registrationNumber', e.target.value)} />
                       </div>
                     </label>
                     <label className="dashboard-profile__field dashboard-profile__field--wide">
                       <span>Trading name <em>(optional)</em></span>
                       <div className="dashboard-profile__input-wrap">
-                        <input type="text" value={formData.tradingName} onChange={(e) => handleInputChange('tradingName', e.target.value)} />
+                        <input type="text" maxLength={150} value={formData.tradingName} onChange={(e) => handleInputChange('tradingName', e.target.value)} />
                       </div>
                     </label>
                   </>
@@ -483,6 +541,7 @@ export default function DashboardProfile() {
                     <MapPin size={18} />
                     <input
                       type="text"
+                      maxLength={20}
                       value={formData.unitNumber}
                       onChange={(e) => handleInputChange('unitNumber', e.target.value)}
                     />
@@ -495,6 +554,7 @@ export default function DashboardProfile() {
                     <MapPin size={18} />
                     <input
                       type="text"
+                      maxLength={100}
                       value={formData.building}
                       onChange={(e) => handleInputChange('building', e.target.value)}
                     />
@@ -507,6 +567,7 @@ export default function DashboardProfile() {
                      <MapPin size={18} />
                      <input
                        type="text"
+                       maxLength={100}
                        value={formData.streetName}
                        onChange={(e) => handleInputChange('streetName', e.target.value)}
                      />
@@ -515,11 +576,11 @@ export default function DashboardProfile() {
 
                 <label className="dashboard-profile__field">
                   <span>Suburb</span>
-                  <div className="dashboard-profile__input-wrap"><input type="text" value={formData.suburb} onChange={(e) => handleInputChange('suburb', e.target.value)} /></div>
+                  <div className="dashboard-profile__input-wrap"><input type="text" maxLength={100} value={formData.suburb} onChange={(e) => handleInputChange('suburb', e.target.value)} /></div>
                 </label>
                 <label className="dashboard-profile__field">
                   <span>City / town</span>
-                  <div className="dashboard-profile__input-wrap"><input type="text" value={formData.city} onChange={(e) => handleInputChange('city', e.target.value)} /></div>
+                  <div className="dashboard-profile__input-wrap"><input type="text" maxLength={100} value={formData.city} onChange={(e) => handleInputChange('city', e.target.value)} /></div>
                 </label>
                 {formData.country === 'South Africa' && (
                   <label className="dashboard-profile__field">
@@ -545,7 +606,7 @@ export default function DashboardProfile() {
                 <p className="dashboard-profile__section-description dashboard-profile__field--wide">The person authorised to confirm Company Snapshot data for use in a Blueprint.</p>
                 <label className="dashboard-profile__field">
                   <span>Full name</span>
-                  <div className="dashboard-profile__input-wrap"><UserRound size={18} /><input type="text" value={formData.signatoryName} onChange={(e) => handleInputChange('signatoryName', e.target.value)} /></div>
+                  <div className="dashboard-profile__input-wrap"><UserRound size={18} /><input type="text" maxLength={100} value={formData.signatoryName} onChange={(e) => handleInputChange('signatoryName', e.target.value)} /></div>
                 </label>
                 <label className="dashboard-profile__field">
                   <span>Capacity</span>

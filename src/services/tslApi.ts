@@ -153,6 +153,8 @@ export function clearAuthSession() {
   localStorage.removeItem('tsl-dashboard-queue')
   localStorage.removeItem('tsl-selected-dashboard-wizards')
   localStorage.removeItem('tsl-dashboard-completed-instances')
+  // Clear in-session counsel credit cache so the next login starts fresh
+  try { sessionStorage.removeItem('tsl-counsel-credits-session') } catch { /* ignore */ }
   emitAuthSessionChanged()
 }
 
@@ -284,7 +286,7 @@ export const subscriptionApi = {
   consumeBlueprintRun: (blueprintId: string, alreadyCharged = false) =>
     request<BlueprintRunConsumption>('/api/v1/subscription/blueprint-runs/consume', 'POST', { blueprintId, alreadyCharged }),
 
-  /** R250 per Blueprint Unit. */
+  /** R149 per Blueprint Unit. */
   topUpBlueprintRuns: (units: number) => request<BlueprintRunTopUp>('/api/v1/subscription/blueprint-runs/top-up', 'POST', { units }),
 
   /** GET  /api/v1/subscription/upgrade/preview?toPlanId=X — prorated charge preview */

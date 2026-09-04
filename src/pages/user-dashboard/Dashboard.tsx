@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { DashboardShell } from '../../components/dashboard/DashboardShell'
 import { capitalizePlan, formatDate } from '../../services/dashboardTypes'
-import type { DashboardData, LegalLinks, QuickAccessLinks, SubscriptionData, SubscriptionPlan } from '../../services/dashboardTypes'
+import type { CounselCredits, DashboardData, LegalLinks, QuickAccessLinks, SubscriptionData, SubscriptionPlan } from '../../services/dashboardTypes'
 import { setPageMetadata } from '../../services/metadata'
 import { counselApi, paymentApi, smeApi, subscriptionApi } from '../../services/tslApi'
 import type { FounderAgreementFieldMap } from '../../services/founderAgreementFieldMap'
@@ -54,9 +54,26 @@ import InsufficientBlueprintUnitsModal from './InsufficientBlueprintUnitsModal'
 import type { ServiceAgreementWizardData } from './ServiceAgreementWizardModal'
 import type { SlaWizardData } from './SlaWizardModal'
 import ComingSoonWizardModal from './ComingSoonWizardModal'
+import CounselCreditsModal from './CounselCreditsModal'
+import type { TopUpPlan } from './CounselCreditsModal'
 import { UpgradePlansModal } from './billing/UpgradePlansModal'
 import { UpgradeConfirmModal } from './billing/UpgradeConfirmModal'
 import './Dashboard.css'
+
+// ── Shared counsel-credit session helpers ─────────────────────────────────
+// Must use the SAME key as DashboardCounsel.tsx so both pages share one counter.
+const COUNSEL_CREDITS_SESSION_KEY = 'tsl-counsel-credits-session'
+
+function readSessionCounselCredits(): CounselCredits | null {
+  try {
+    const raw = sessionStorage.getItem(COUNSEL_CREDITS_SESSION_KEY)
+    return raw ? (JSON.parse(raw) as CounselCredits) : null
+  } catch { return null }
+}
+
+function writeSessionCounselCredits(credits: CounselCredits) {
+  try { sessionStorage.setItem(COUNSEL_CREDITS_SESSION_KEY, JSON.stringify(credits)) } catch { /* ignore */ }
+}
 
 type DashboardTab = 'new' | 'inProgress' | 'completed'
 
@@ -84,6 +101,15 @@ interface CompletedInstance {
   data: unknown           // typed narrowly in render helpers
 }
 
+interface InProgressInstance {
+  id: string              // unique per in-progress run
+  wizardType: string      // matches wizard.title
+  step: number
+  progress: number
+  startedAt: string
+  data: unknown
+}
+
 // Per-plan benefit lines shown in the top-right hero card.
 // Numeric values (runs, team members) come from the live SubscriptionData so they
 // stay accurate after an upgrade/downgrade without any frontend changes.
@@ -96,35 +122,31 @@ function buildPlanBenefits(sub: SubscriptionData, _plan: SubscriptionPlan | unde
 
   if (id === 'launchpad') {
     return [
+      'All five Blueprints',
       '4 Blueprint run units per month',
-      '0 Counsel credits per month',
-      'Basic email support',
-      '6 months document storage',
-      'No API access',
-      'No white-label',
+      'Additional run units: R149 each',
+      'No Counsel credits included',
+      'Additional Counsel credits: R550 per credit (30 minutes of attorney time)',
     ]
   }
 
   if (id === 'operator') {
     return [
+      'All five Blueprints',
       '12 Blueprint run units per month',
-      '2 Counsel credits per month',
-      'Priority support (24–48 hr)',
-      'Unlimited document storage',
-      'API access',
-      'No white-label',
+      'Additional run units: R149 each',
+      '2 Counsel credits per month (1 hour of attorney time); unused credits expire at month end',
+      'Additional Counsel credits: R550 per credit',
     ]
   }
 
   if (id === 'boardroom') {
     return [
+      'All five Blueprints',
       '30 Blueprint run units per month',
-      '6 Counsel credits per month',
-      'Dedicated support (SLA)',
-      'Unlimited document storage',
-      'API access',
-      'White-label options',
-      'Custom workflows',
+      'Additional run units: R149 each',
+      '6 Counsel credits per month (3 hours of attorney time); unused credits expire at month end',
+      'Additional Counsel credits: R550 per credit',
     ]
   }
 
@@ -138,6 +160,112 @@ function buildPlanBenefits(sub: SubscriptionData, _plan: SubscriptionPlan | unde
 const PREVIEW_COUNT = 4
 const wizardAccessCacheKey = 'tsl-wizard-access-cache'
 
+// Full feature details shown in the "View All Features" modal per plan
+const PLAN_FULL_FEATURES: Record<string, { items: string[]; excluded: string[] }> = {
+  Launchpad: {
+    items: [
+      'For founders setting the company up and putting the first documents in place',
+      'All five Blueprints',
+      '4 Blueprint run units per month',
+      'Additional run units: R149 each',
+      'No run-unit rollover; unused units expire at the end of the billing month',
+      'No Counsel credits included',
+      'Additional Counsel credits: R550 per credit (30 minutes of attorney time)',
+      'Email support: response within 48 business hours',
+      '1 user',
+      'Document storage: 12 months from generation',
+    ],
+    excluded: [
+      'Counsel credits',
+      'Additional users',
+    ],
+  },
+  Operator: {
+    items: [
+      'For growing teams that need regular legal documents and occasional attorney time',
+      'All five Blueprints',
+      '12 Blueprint run units per month',
+      'Additional run units: R149 each',
+      'No run-unit rollover; unused units expire at the end of the billing month',
+      '2 Counsel credits per month (1 hour of attorney time); unused credits expire at month end',
+      'Additional Counsel credits: R550 per credit',
+      'Priority email support: response within 24 business hours',
+      'Up to 5 users',
+      'Document storage: 24 months from generation',
+    ],
+    excluded: [
+      'Additional users beyond 3',
+    ],
+  },
+  Boardroom: {
+    items: [
+      'For established companies that need high-volume documents and regular attorney access',
+      'All five Blueprints',
+      '30 Blueprint run units per month',
+      'Additional run units: R149 each',
+      'No run-unit rollover; unused units expire at the end of the billing month',
+      '6 Counsel credits per month (3 hours of attorney time); unused credits expire at month end',
+      'Additional Counsel credits: R550 per credit',
+      'Dedicated support with SLA',
+      'Unlimited users',
+      'Document storage: 36 months from generation',
+    ],
+    excluded: [
+      'Additional users beyond 10',
+    ],
+  },
+}
+
+interface PlanFeaturesModalProps {
+  planName: string
+  onClose: () => void
+}
+
+function PlanFeaturesModal({ planName, onClose }: PlanFeaturesModalProps) {
+  const plan = PLAN_FULL_FEATURES[planName]
+  if (!plan) return null
+
+  return (
+    <div
+      className="user-dashboard__plan-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="plan-features-modal-title"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="user-dashboard__plan-modal">
+        <button
+          type="button"
+          className="user-dashboard__plan-modal-close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <X size={16} />
+        </button>
+
+        <h2 id="plan-features-modal-title" className="user-dashboard__plan-modal-title">
+          Your <span>{planName} Plan</span> Includes:
+        </h2>
+
+        <ul className="user-dashboard__plan-modal-list">
+          {plan.items.map((item) => (
+            <li key={item}>
+              <CheckCircle2 size={16} />
+              {item}
+            </li>
+          ))}
+          {plan.excluded.map((item) => (
+            <li key={item} className="user-dashboard__plan-modal-list-excluded">
+              <span className="user-dashboard__plan-modal-x">✕</span>
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
 interface PlanCardProps {
   planName: string
   benefits: string[]
@@ -146,48 +274,49 @@ interface PlanCardProps {
 }
 
 function PlanCard({ planName, benefits, variant, isFree }: PlanCardProps) {
-  const [showAll, setShowAll] = useState(false)
-  const hasMore = benefits.length > PREVIEW_COUNT
-  const visible = showAll ? benefits : benefits.slice(0, PREVIEW_COUNT)
+  const [showModal, setShowModal] = useState(false)
+  const hasFullFeatures = planName in PLAN_FULL_FEATURES
 
   return (
-    <div className={`user-dashboard__plan-card user-dashboard__plan-card--${variant}`}>
-      <h3>
-        Your <span>{planName} Plan</span> Includes:
-      </h3>
+    <>
+      <div className={`user-dashboard__plan-card user-dashboard__plan-card--${variant}`}>
+        <h3>
+          Your <span>{planName} Plan</span> Includes:
+        </h3>
 
-      {isFree ? (
-        <p className="user-dashboard__plan-card-free-text">
-          Get started with the basics — upgrade anytime to unlock more.
-        </p>
-      ) : (
-        <>
-          <ul>
-            {visible.map((benefit) => (
-              <li key={benefit}>
-                <CheckCircle2 size={18} />
-                {benefit}
-              </li>
-            ))}
-          </ul>
+        {isFree ? (
+          <p className="user-dashboard__plan-card-free-text">
+            Get started with the basics — upgrade anytime to unlock more.
+          </p>
+        ) : (
+          <>
+            <ul>
+              {benefits.map((benefit) => (
+                <li key={benefit}>
+                  <CheckCircle2 size={18} />
+                  {benefit}
+                </li>
+              ))}
+            </ul>
 
-          {hasMore && (
-            <button
-              type="button"
-              className="user-dashboard__plan-card-toggle"
-              onClick={() => setShowAll((s) => !s)}
-              aria-expanded={showAll}
-            >
-              {showAll ? 'Show Less' : 'View All Features'}
-              <ChevronDown
-                size={13}
-                className={`user-dashboard__plan-card-chevron${showAll ? ' user-dashboard__plan-card-chevron--open' : ''}`}
-              />
-            </button>
-          )}
-        </>
+            {hasFullFeatures && (
+              <button
+                type="button"
+                className="user-dashboard__plan-card-toggle"
+                onClick={() => setShowModal(true)}
+              >
+                View All Features
+                <ChevronDown size={13} className="user-dashboard__plan-card-chevron" />
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {showModal && (
+        <PlanFeaturesModal planName={planName} onClose={() => setShowModal(false)} />
       )}
-    </div>
+    </>
   )
 }
 
@@ -298,6 +427,149 @@ function triggerDownload(blob: Blob, filename: string) {
 }
 
 /**
+ * Shared, paginated PDF renderer for completed Blueprint downloads.
+ *
+ * It deliberately keeps the existing data rows and field mappings intact, but
+ * presents them in a professional legal-document layout instead of a single
+ * Courier text stream. Blueprint-specific builders only describe their title
+ * and ordered content; this function owns the TSL header, sections, wrapping,
+ * pagination and page footer.
+ */
+function buildLegalDocumentPdf(lines: string[]): Blob {
+  const PAGE_W = 595
+  const PAGE_H = 842
+  const MARGIN = 54
+  const usableWidth = PAGE_W - MARGIN * 2
+  const navy = '0.047 0.114 0.21'
+  const gold = '0.82 0.62 0.16'
+  const ink = '0.075 0.13 0.22'
+  const muted = '0.36 0.4 0.46'
+  const sanitize = (value: string) => value
+    .replace(/[–—]/g, '-')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[^\x20-\x7E]/g, ' ')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+  const wrap = (value: string, maxChars: number) => {
+    const words = value.trim().split(/\s+/)
+    const wrapped: string[] = []
+    let line = ''
+    words.forEach((word) => {
+      const next = line ? `${line} ${word}` : word
+      if (next.length > maxChars && line) {
+        wrapped.push(line)
+        line = word
+      } else {
+        line = next
+      }
+    })
+    if (line) wrapped.push(line)
+    return wrapped
+  }
+  const isDivider = (line: string) => /^[-─]{10,}$/.test(line)
+  const isHeading = (line: string) => /^\d+\. [A-Z &+]+$/.test(line)
+  const title = lines[0] || 'THE STARTUP LEGAL DOCUMENT'
+  const pages: string[][] = [[]]
+  let pageIndex = 0
+  let cursorY = 726
+
+  const addToPage = (operations: string[], requiredHeight: number) => {
+    if (cursorY - requiredHeight < 70) {
+      pages[pageIndex] = operations
+      pageIndex += 1
+      pages[pageIndex] = []
+      cursorY = 748
+      return pages[pageIndex]
+    }
+    return operations
+  }
+  const addText = (operations: string[], value: string, x: number, y: number, size: number, font: '/F1' | '/F2', colour: string) => {
+    operations.push(`BT ${colour} rg ${font} ${size} Tf ${x} ${y} Td (${sanitize(value)}) Tj ET`)
+  }
+
+  lines.slice(1).forEach((sourceLine) => {
+    const line = sourceLine.trim()
+    if (!line || isDivider(line)) return
+    let operations = pages[pageIndex]
+
+    if (isHeading(line)) {
+      operations = addToPage(operations, 31)
+      operations.push(`q ${gold} rg ${MARGIN} ${cursorY - 5} 3 19 re f Q`)
+      addText(operations, line, MARGIN + 12, cursorY, 12, '/F2', ink)
+      cursorY -= 28
+      return
+    }
+
+    const separatorIndex = line.indexOf(':')
+    if (separatorIndex > 0 && separatorIndex < 28) {
+      const label = line.slice(0, separatorIndex).trim()
+      const value = line.slice(separatorIndex + 1).trim() || '-'
+      const valueLines = wrap(value, 58)
+      operations = addToPage(operations, Math.max(17, valueLines.length * 14) + 4)
+      addText(operations, label, MARGIN, cursorY, 9, '/F2', muted)
+      valueLines.forEach((valueLine, index) => addText(operations, valueLine, MARGIN + 142, cursorY - index * 14, 9.5, '/F1', ink))
+      cursorY -= Math.max(17, valueLines.length * 14) + 4
+      return
+    }
+
+    const bodyLines = wrap(line, 84)
+    operations = addToPage(operations, bodyLines.length * 15 + 8)
+    bodyLines.forEach((bodyLine) => {
+      addText(operations, bodyLine, MARGIN, cursorY, 10, '/F1', ink)
+      cursorY -= 15
+    })
+    cursorY -= 8
+  })
+
+  const fontRegularObject = 3 + pages.length * 2
+  const fontBoldObject = fontRegularObject + 1
+  const objectCount = fontBoldObject
+  const pageObjectNumbers = pages.map((_, index) => 3 + index)
+  const contentObjectNumbers = pages.map((_, index) => 3 + pages.length + index)
+  const objects: string[] = new Array(objectCount + 1)
+  objects[1] = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj'
+  objects[2] = `2 0 obj\n<< /Type /Pages /Kids [${pageObjectNumbers.map((number) => `${number} 0 R`).join(' ')}] /Count ${pages.length} >>\nendobj`
+
+  pages.forEach((content, index) => {
+    const operations: string[] = [
+      `q ${navy} rg 0 790 ${PAGE_W} 52 re f Q`,
+      `BT 1 1 1 rg /F2 10 Tf ${MARGIN} 812 Td (THE STARTUP LEGAL) Tj ET`,
+      `BT 0.77 0.82 0.9 rg /F1 8.5 Tf ${MARGIN} 797 Td (${sanitize(title)}) Tj ET`,
+    ]
+    if (index === 0) {
+      operations.push(`BT ${ink} rg /F2 20 Tf ${MARGIN} 760 Td (${sanitize(title)}) Tj ET`)
+      operations.push(`q ${gold} rg ${MARGIN} 744 ${usableWidth} 1.3 re f Q`)
+    }
+    operations.push(...content)
+    operations.push(`q 0.88 0.89 0.91 RG 0.7 w ${MARGIN} 43 m ${PAGE_W - MARGIN} 43 l S Q`)
+    operations.push(`BT ${muted} rg /F1 8 Tf 205 26 Td (Generated by The StartUp Legal | Page ${index + 1} of ${pages.length}) Tj ET`)
+    const stream = operations.join('\n')
+    const pageObject = pageObjectNumbers[index]
+    const contentObject = contentObjectNumbers[index]
+    objects[pageObject] = `${pageObject} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W} ${PAGE_H}] /Contents ${contentObject} 0 R /Resources << /Font << /F1 ${fontRegularObject} 0 R /F2 ${fontBoldObject} 0 R >> >> >>\nendobj`
+    objects[contentObject] = `${contentObject} 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj`
+  })
+  objects[fontRegularObject] = `${fontRegularObject} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj`
+  objects[fontBoldObject] = `${fontBoldObject} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj`
+
+  const header = '%PDF-1.4\n'
+  const offsets: number[] = []
+  const body: string[] = []
+  let position = header.length
+  for (let index = 1; index <= objectCount; index += 1) {
+    offsets.push(position)
+    const object = `${objects[index]}\n`
+    body.push(object)
+    position += object.length
+  }
+  const xref = ['xref', `0 ${objectCount + 1}`, '0000000000 65535 f ', ...offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n `)].join('\n')
+  const trailer = `trailer\n<< /Size ${objectCount + 1} /Root 1 0 R >>\nstartxref\n${position}\n%%EOF`
+  return new Blob([header, ...body, xref, '\n', trailer], { type: 'application/pdf' })
+}
+
+/**
  * Build a structurally valid single-page PDF containing NDA text.
  * Uses the minimal PDF 1.4 object model — no external libraries needed.
  */
@@ -364,45 +636,7 @@ function buildNdaPdf(data: import('./NdaWizardModal').NdaWizardData, completedAt
     '─────────────────────────────────────────',
   ]
 
-  // Encode lines as PDF text commands (BT ... ET block per line)
-  const pageLines: string[] = []
-  for (const line of lines) {
-    // Escape PDF special chars: ( ) \
-    const escaped = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
-    pageLines.push(`BT /F1 11 Tf 50 ${800 - pageLines.length * 15} Td (${escaped}) Tj ET`)
-  }
-  const streamContent = pageLines.join('\n')
-
-  // Build minimal PDF objects
-  const obj1 = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj'
-  const obj2 = '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj'
-  const obj3 = `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]\n   /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj`
-  const obj4 = `4 0 obj\n<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj`
-  const obj5 = '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj'
-
-  const header = '%PDF-1.4\n'
-  const body = [obj1, obj2, obj3, obj4, obj5].join('\n')
-
-  // Cross-reference table
-  const offsets: number[] = []
-  let pos = header.length
-  for (const obj of [obj1, obj2, obj3, obj4, obj5]) {
-    offsets.push(pos)
-    pos += obj.length + 1 // +1 for the newline between objects
-  }
-  const xrefOffset = header.length + body.length + 1
-
-  const xref = [
-    'xref',
-    `0 6`,
-    '0000000000 65535 f ',
-    ...offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n `),
-  ].join('\n')
-
-  const trailer = `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
-
-  const full = `${header}${body}\n${xref}\n${trailer}`
-  return new Blob([full], { type: 'application/pdf' })
+  return buildLegalDocumentPdf(lines)
 }
 
 /**
@@ -577,26 +811,7 @@ function buildEmploymentPdf(d: EmploymentWizardData, completedAt: string | null)
     'It does not constitute legal advice. Consult a qualified attorney.',
     '─────────────────────────────────────────',
   ]
-  const pageLines: string[] = []
-  for (const line of lines) {
-    const escaped = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
-    pageLines.push(`BT /F1 11 Tf 50 ${800 - pageLines.length * 15} Td (${escaped}) Tj ET`)
-  }
-  const streamContent = pageLines.join('\n')
-  const obj1 = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj'
-  const obj2 = '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj'
-  const obj3 = `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]\n   /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj`
-  const obj4 = `4 0 obj\n<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj`
-  const obj5 = '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj'
-  const header = '%PDF-1.4\n'
-  const body = [obj1, obj2, obj3, obj4, obj5].join('\n')
-  const offsets: number[] = []
-  let pos = header.length
-  for (const obj of [obj1, obj2, obj3, obj4, obj5]) { offsets.push(pos); pos += obj.length + 1 }
-  const xrefOffset = header.length + body.length + 1
-  const xref = ['xref', '0 6', '0000000000 65535 f ', ...offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n `)].join('\n')
-  const trailer = `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
-  return new Blob([`${header}${body}\n${xref}\n${trailer}`], { type: 'application/pdf' })
+  return buildLegalDocumentPdf(lines)
 }
 
 function canonicalise(value: unknown): string {
@@ -772,26 +987,7 @@ function buildPrivacyPolicyPdf(d: PrivacyPolicyWizardData, completedAt: string |
     'It does not constitute legal advice. Consult a qualified attorney.',
     '─────────────────────────────────────────',
   ]
-  const pageLines: string[] = []
-  for (const line of lines) {
-    const escaped = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
-    pageLines.push(`BT /F1 11 Tf 50 ${800 - pageLines.length * 15} Td (${escaped}) Tj ET`)
-  }
-  const streamContent = pageLines.join('\n')
-  const obj1 = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj'
-  const obj2 = '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj'
-  const obj3 = `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]\n   /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj`
-  const obj4 = `4 0 obj\n<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj`
-  const obj5 = '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj'
-  const header = '%PDF-1.4\n'
-  const body = [obj1, obj2, obj3, obj4, obj5].join('\n')
-  const offsets: number[] = []
-  let pos = header.length
-  for (const obj of [obj1, obj2, obj3, obj4, obj5]) { offsets.push(pos); pos += obj.length + 1 }
-  const xrefOffset = header.length + body.length + 1
-  const xref = ['xref', '0 6', '0000000000 65535 f ', ...offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n `)].join('\n')
-  const trailer = `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
-  return new Blob([`${header}${body}\n${xref}\n${trailer}`], { type: 'application/pdf' })
+  return buildLegalDocumentPdf(lines)
 }
 
 function buildPrivacyPolicyEvidencePack(d: PrivacyPolicyWizardData, completedAt: string | null): Blob {
@@ -959,26 +1155,7 @@ function buildFounderAgreementPdf(d: FounderAgreementWizardData, completedAt: st
     'It does not constitute legal advice. Consult a qualified attorney.',
     '─────────────────────────────────────────',
   ]
-  const pageLines: string[] = []
-  for (const line of lines) {
-    const escaped = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
-    pageLines.push(`BT /F1 11 Tf 50 ${800 - pageLines.length * 15} Td (${escaped}) Tj ET`)
-  }
-  const streamContent = pageLines.join('\n')
-  const obj1 = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj'
-  const obj2 = '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj'
-  const obj3 = `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]\n   /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj`
-  const obj4 = `4 0 obj\n<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj`
-  const obj5 = '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj'
-  const header = '%PDF-1.4\n'
-  const body = [obj1, obj2, obj3, obj4, obj5].join('\n')
-  const offsets: number[] = []
-  let pos = header.length
-  for (const obj of [obj1, obj2, obj3, obj4, obj5]) { offsets.push(pos); pos += obj.length + 1 }
-  const xrefOffset = header.length + body.length + 1
-  const xref = ['xref', '0 6', '0000000000 65535 f ', ...offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n `)].join('\n')
-  const trailer = `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
-  return new Blob([`${header}${body}\n${xref}\n${trailer}`], { type: 'application/pdf' })
+  return buildLegalDocumentPdf(lines)
 }
 
 async function buildFounderAgreementEvidencePack(
@@ -1203,26 +1380,7 @@ function buildServiceAgreementPdf(d: ServiceAgreementWizardData, completedAt: st
     'It does not constitute legal advice. Consult a qualified attorney.',
     '─────────────────────────────────────────',
   ]
-  const pageLines: string[] = []
-  for (const line of lines) {
-    const escaped = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
-    pageLines.push(`BT /F1 11 Tf 50 ${800 - pageLines.length * 15} Td (${escaped}) Tj ET`)
-  }
-  const streamContent = pageLines.join('\n')
-  const obj1 = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj'
-  const obj2 = '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj'
-  const obj3 = `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]\n   /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj`
-  const obj4 = `4 0 obj\n<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj`
-  const obj5 = '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj'
-  const header = '%PDF-1.4\n'
-  const body = [obj1, obj2, obj3, obj4, obj5].join('\n')
-  const offsets: number[] = []
-  let pos = header.length
-  for (const obj of [obj1, obj2, obj3, obj4, obj5]) { offsets.push(pos); pos += obj.length + 1 }
-  const xrefOffset = header.length + body.length + 1
-  const xref = ['xref', '0 6', '0000000000 65535 f ', ...offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n `)].join('\n')
-  const trailer = `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
-  return new Blob([`${header}${body}\n${xref}\n${trailer}`], { type: 'application/pdf' })
+  return buildLegalDocumentPdf(lines)
 }
 
 function buildServiceAgreementEvidencePack(d: ServiceAgreementWizardData, completedAt: string | null): Blob {
@@ -1410,26 +1568,7 @@ function buildSlaPdf(d: SlaWizardData, completedAt: string | null): Blob {
     'It does not constitute legal advice. Consult a qualified attorney.',
     '─────────────────────────────────────────',
   ]
-  const pageLines: string[] = []
-  for (const line of lines) {
-    const escaped = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
-    pageLines.push(`BT /F1 11 Tf 50 ${800 - pageLines.length * 15} Td (${escaped}) Tj ET`)
-  }
-  const streamContent = pageLines.join('\n')
-  const obj1 = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj'
-  const obj2 = '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj'
-  const obj3 = `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]\n   /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj`
-  const obj4 = `4 0 obj\n<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj`
-  const obj5 = '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj'
-  const header = '%PDF-1.4\n'
-  const body = [obj1, obj2, obj3, obj4, obj5].join('\n')
-  const offsets: number[] = []
-  let pos = header.length
-  for (const obj of [obj1, obj2, obj3, obj4, obj5]) { offsets.push(pos); pos += obj.length + 1 }
-  const xrefOffset = header.length + body.length + 1
-  const xref = ['xref', '0 6', '0000000000 65535 f ', ...offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n `)].join('\n')
-  const trailer = `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
-  return new Blob([`${header}${body}\n${xref}\n${trailer}`], { type: 'application/pdf' })
+  return buildLegalDocumentPdf(lines)
 }
 
 function buildSlaEvidencePack(d: SlaWizardData, completedAt: string | null): Blob {
@@ -1545,7 +1684,7 @@ export default function Dashboard() {
   )
   const { state: ppState, startWizard: startPP, saveProgress: savePPProgress, completeWizard: completePP, resetWizard: resetPP } = usePrivacyPolicyWizard(mapPrivacyFields)
   const { state: faState, startWizard: startFA, saveProgress: saveFAProgress, completeWizard: completeFA, resetWizard: resetFA } = useFounderAgreementWizard()
-  const { state: saState, startWizard: startSA, saveProgress: saveSAProgress, completeWizard: completeSA } = useServiceAgreementWizard()
+  const { state: saState, startWizard: startSA, saveProgress: saveSAProgress, completeWizard: completeSA, resetWizard: resetSA } = useServiceAgreementWizard()
   const mapSlaApiFields = useCallback(
     (data: SlaWizardData) => mapSlaFields(data) as unknown as Record<string, unknown>,
     [],
@@ -1645,6 +1784,8 @@ export default function Dashboard() {
   const [isSLAModalOpen, setIsSLAModalOpen] = useState(false)
   const [comingSoonTitle, setComingSoonTitle] = useState<string | null>(null)
   const [ndaToast, setNdaToast] = useState('')
+  const [counselCreditsForGate, setCounselCreditsForGate] = useState<CounselCredits | null>(null)
+  const [isNoCounselCreditModalOpen, setIsNoCounselCreditModalOpen] = useState(false)
   const [insufficientUnits, setInsufficientUnits] = useState<{ remaining: number; required: number; blueprintName: string; pricePerUnit: number; iconName?: string } | null>(null)
   const [pdfConfirm, setPdfConfirm] = useState<{ blueprintId: string; downloadKey: string; filename: string; credits: number; build: () => Blob | Promise<Blob> } | null>(null)
   const pdfDownloadedKey = 'tsl-pdf-downloaded'
@@ -1673,8 +1814,17 @@ export default function Dashboard() {
       return storedRaw ? (JSON.parse(storedRaw) as Record<string, number>) : {}
     } catch { return {} }
   })
+  // A persisted queue is authoritative: a zero count means the user already
+  // started every instance of that Blueprint. Do not re-seed it on refresh.
+  const queueWasRestoredRef = useRef((() => {
+    try { return localStorage.getItem(queueStorageKey) !== null } catch { return false }
+  })())
   // Whether the queue has been seeded from the server-authoritative selectedWizards
   const queueSeedRef = useRef(false)
+  // The New-tab item is consumed as soon as the user presses Start. The wizard
+  // close/complete handlers still call decrementQueue for older flows, so this
+  // ref prevents that same item from being deducted a second time.
+  const startedQueueItemRef = useRef<string | null>(null)
   // Tracks whether the initial billingSubscription load has been observed so
   // the billing upgrade effect only fires on genuine in-place plan changes,
   // not on the initial mount hydration from the server.
@@ -1704,65 +1854,82 @@ export default function Dashboard() {
     return id
   }
 
-  // ── In-progress set ──────────────────────────────────────────────────────
-  // Tracks which blueprint types currently have an active (inProgress) run in
-  // their single-slot hook. Prevents double-starting the same type while it is
-  // already open — the user must finish or close the current run first.
-  // Derived from live hook states so it is always in sync.
-  const inProgressTitles = new Set<string>([
-    ...(ndaState.status === 'inProgress' ? ['Non-Disclosure Agreement (NDA)'] : []),
-    ...(empState.status === 'inProgress' ? ['Employment Offer Letter'] : []),
-    ...(ppState.status === 'inProgress' ? ['Privacy & Cookies Policy'] : []),
-    ...(faState.status === 'inProgress' ? ['Founders agreement and IP assignment'] : []),
-    ...(saState.status === 'inProgress' ? ['Service Agreement'] : []),
-    ...(slaState.status === 'inProgress' ? ['Service Level Agreement (SLA)'] : []),
-  ])
+  // ── In-progress instances ─────────────────────────────────────────────────
+  // Each closed-mid-progress run is stored here so multiple instances of the
+  // same blueprint type each appear as a separate card in the In Progress tab.
+  const inProgressInstancesKey = 'tsl-dashboard-inprogress-instances'
+  const [inProgressInstances, setInProgressInstances] = useState<InProgressInstance[]>(() => {
+    try {
+      const raw = localStorage.getItem('tsl-dashboard-inprogress-instances')
+      return raw ? (JSON.parse(raw) as InProgressInstance[]) : []
+    } catch { return [] }
+  })
+
+  // Ref tracking which in-progress instance is currently being continued so
+  // onClose/onComplete handlers can update or remove it.
+  const continuingInstanceRef = useRef<string | null>(null)
+  // Flag set by onComplete so the subsequent onClose call (fired by all modals
+  // after generation) knows not to push a new in-progress instance.
+  const justCompletedRef = useRef(false)
+
+  const pushInProgressInstance = (wizardType: string, step: number, progress: number, data: unknown): string => {
+    const id = `${wizardType}:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`
+    const entry: InProgressInstance = { id, wizardType, step, progress, startedAt: new Date().toISOString(), data }
+    setInProgressInstances((prev) => {
+      const next = [...prev, entry]
+      localStorage.setItem(inProgressInstancesKey, JSON.stringify(next))
+      return next
+    })
+    return id
+  }
+
+  const updateInProgressInstance = (id: string, step: number, progress: number, data: unknown) => {
+    setInProgressInstances((prev) => {
+      const next = prev.map((inst) => inst.id === id ? { ...inst, step, progress, data } : inst)
+      localStorage.setItem(inProgressInstancesKey, JSON.stringify(next))
+      return next
+    })
+  }
+
+  const removeInProgressInstance = (id: string) => {
+    setInProgressInstances((prev) => {
+      const next = prev.filter((inst) => inst.id !== id)
+      localStorage.setItem(inProgressInstancesKey, JSON.stringify(next))
+      return next
+    })
+  }
+
+  // Derived: set of blueprint types that have at least one in-progress instance
+  const inProgressTitles = new Set<string>(inProgressInstances.map((inst) => inst.wizardType))
 
   // Decrement one instance from the New queue and open the corresponding modal.
-  // Guard: if this blueprint type is already inProgress, do not allow a second
-  // concurrent start — show the in-progress card instead by switching tabs.
-  // If the hook is in 'completed' state reset it first so startWizard() can
-  // transition it back to inProgress.
   const handleStart = (title: string) => {
-    // Block double-start: a wizard slot can only hold one active run at a time.
-    // Switch to In Progress so the user can Continue rather than starting again.
-    if (inProgressTitles.has(title)) {
-      setActiveTab('inProgress')
-      return
-    }
-
     // Do NOT flip the view yet — the landing page stays visible behind the
     // modal. The transition to the tabbed dashboard happens only when the
     // user closes or completes the modal (see onClose / onComplete handlers).
 
-    // Ensure the New tab has an entry for this wizard when we transition to the
-    // paid tabbed dashboard after the modal closes. This guards against the case
-    // where the queue has not yet been seeded from the API (e.g. the user starts
-    // a wizard from the initial subscription view before the wizardAccess response
-    // arrives). Without this, the New tab would be empty after the transition.
-    if ((queuedCounts[title] ?? 0) <= 0) {
-      setQueuedCounts((prev) => {
-        const next = { ...prev, [title]: 1 }
-        localStorage.setItem(queueStorageKey, JSON.stringify(next))
-        return next
-      })
-    }
+    // Consume the exact New-tab item immediately, not when the modal closes.
+    // Persisting the zero count means a browser refresh cannot restore it from
+    // the original server-side selection quantity.
+    startedQueueItemRef.current = title
+    setQueuedCounts((prev) => {
+      const current = prev[title] ?? 0
+      const next = { ...prev, [title]: Math.max(0, current - 1) }
+      localStorage.setItem(queueStorageKey, JSON.stringify(next))
+      queueWasRestoredRef.current = true
+      return next
+    })
 
     if (title === 'Non-Disclosure Agreement (NDA)') {
-      if (ndaState.status === 'completed') resetNda()
-      startWizard(); setIsNdaModalOpen(true)
+      resetNda(); startWizard(); setIsNdaModalOpen(true)
     } else if (title === 'Employment Offer Letter') {
-      if (empState.status === 'completed') resetEmp()
-      startEmp(); setIsEmpModalOpen(true)
+      resetEmp(); startEmp(); setIsEmpModalOpen(true)
     } else if (title === 'Privacy & Cookies Policy') {
-      if (ppState.status === 'completed') resetPP()
-      startPP(); setIsPPModalOpen(true)
+      resetPP(); startPP(); setIsPPModalOpen(true)
     } else if (title === 'Founder Agreement' || title === 'Founders Agreement and IP Assignment' || title === 'Founders agreement and IP assignment') {
-      if (faState.status === 'completed') resetFA()
-      startFA(); setIsFAModalOpen(true)
+      resetFA(); startFA(); setIsFAModalOpen(true)
     } else if (title === 'Service Level Agreement (SLA)') {
-      if (slaState.status === 'completed') resetSLA()
-      startSLA(); setIsSLAModalOpen(true)
+      resetSLA(); startSLA(); setIsSLAModalOpen(true)
     } else {
       setComingSoonTitle(title)
     }
@@ -1840,24 +2007,26 @@ export default function Dashboard() {
         setWizardAccess(freshAccess)
         localStorage.setItem(wizardAccessCacheKey, JSON.stringify(freshAccess))
 
-        // When the user just returned from "Add to Dashboard", set the queue
-        // directly from the server-authoritative selectedWizards so there is no
-        // double-count (the seed block below would add on top of what the server
-        // already includes for the newly added wizards).
+        // When the user returns from "Add to Dashboard", add only the quantities
+        // selected in that action. The server response contains every historical
+        // selection, which must not overwrite items already started in New.
         if (addedCount > 0 && locationState?.addedWizards) {
+          const addedWizards = locationState.addedWizards
           queueSeedRef.current = true
+          queueWasRestoredRef.current = true
           setQueuedCounts((prev) => {
             const next = { ...prev }
-            for (const w of freshAccess.selectedWizards) {
-              // Use the server quantity as the authoritative count; preserve any
-              // count that is already higher (e.g. user had extras queued).
-              if ((next[w.title] ?? 0) < (w.quantity ?? 1)) {
-                next[w.title] = w.quantity ?? 1
-              }
+            for (const addedWizard of addedWizards) {
+              const quantity = Math.max(1, Number(addedWizard.quantity) || 1)
+              next[addedWizard.title] = (next[addedWizard.title] ?? 0) + quantity
             }
             localStorage.setItem(queueStorageKey, JSON.stringify(next))
             return next
           })
+          // This is a one-time return payload. Browser refresh preserves
+          // history.state, so remove it after seeding; otherwise every reload
+          // would restore the original server quantity over the saved queue.
+          navigate(location.pathname, { replace: true, state: null })
           return
         }
 
@@ -1866,7 +2035,7 @@ export default function Dashboard() {
         // On the first-time landing the queue is populated one wizard at a time
         // as the user clicks Start, so auto-seeding all selectedWizards would
         // flood the New tab with every blueprint the account has ever saved.
-        if (!queueSeedRef.current && localStorage.getItem('tsl-dashboard-view-mode') === 'returning') {
+        if (!queueSeedRef.current && !queueWasRestoredRef.current && localStorage.getItem('tsl-dashboard-view-mode') === 'returning') {
           queueSeedRef.current = true
           setQueuedCounts((prev) => {
             const next = { ...prev }
@@ -1876,6 +2045,7 @@ export default function Dashboard() {
               }
             }
             localStorage.setItem(queueStorageKey, JSON.stringify(next))
+            queueWasRestoredRef.current = true
             return next
           })
         }
@@ -2009,7 +2179,7 @@ export default function Dashboard() {
           remaining: shortage.remainingBlueprintUnits,
           required: shortage.requiredBlueprintUnits,
           blueprintName: bpName,
-          pricePerUnit: shortage.blueprintRunTopUpRate ?? 250,
+          pricePerUnit: shortage.blueprintRunTopUpRate ?? 149,
           iconName: BLUEPRINT_ICON_NAME[bpName] ?? 'Shield',
         })
       } else showNdaToast(response.message || 'Unable to generate the final document.')
@@ -2051,6 +2221,10 @@ export default function Dashboard() {
   }
 
   const decrementQueue = (title: string) => {
+    if (startedQueueItemRef.current === title) {
+      startedQueueItemRef.current = null
+      return
+    }
     setQueuedCounts((prev) => {
       const current = prev[title] ?? 0
       if (current <= 0) return prev
@@ -2065,7 +2239,6 @@ export default function Dashboard() {
     saveProgress(4, data)
     completeWizard()
     pushCompletedInstance('Non-Disclosure Agreement (NDA)', data, completedAt)
-    decrementQueue('Non-Disclosure Agreement (NDA)')
     showNdaToast('NDA generated successfully. Your document is ready to download.')
   }
 
@@ -2074,7 +2247,6 @@ export default function Dashboard() {
     saveEmpProgress(6, data)
     completeEmp(data)
     pushCompletedInstance('Employment Offer Letter', data, completedAt)
-    decrementQueue('Employment Offer Letter')
     showNdaToast('Employment Offer Letter generated successfully. Your document is ready to download.')
   }
 
@@ -2083,7 +2255,6 @@ export default function Dashboard() {
     savePPProgress(7, data)
     completePP()
     pushCompletedInstance('Privacy & Cookies Policy', data, completedAt)
-    decrementQueue('Privacy & Cookies Policy')
     showNdaToast('Privacy Policy generated successfully. Your document is ready to download.')
   }
 
@@ -2092,11 +2263,23 @@ export default function Dashboard() {
     saveFAProgress(8, data)
     completeFA()
     pushCompletedInstance('Founders agreement and IP assignment', data, completedAt)
-    decrementQueue('Founders agreement and IP assignment')
     showNdaToast("Founders' Agreement generated successfully. Your document is ready to download.")
   }
 
   const routeFounderPublicFundingToCounsel = useCallback(async (fields: FounderAgreementFieldMap) => {
+    // Use the session-persisted credit count so in-session decrements are
+    // respected. Only fall back to a live API call when no session value exists.
+    let credits = readSessionCounselCredits()
+    if (!credits) {
+      const creditsRes = await counselApi.credits()
+      credits = creditsRes.success && creditsRes.data ? creditsRes.data : null
+      if (credits) writeSessionCounselCredits(credits)
+    }
+    if (!credits || credits.creditsRemaining < 1) {
+      setCounselCreditsForGate(credits)
+      setIsNoCounselCreditModalOpen(true)
+      return null
+    }
     const response = await counselApi.createPublicFundingReview({
       subject: "Founders' Agreement & IP Assignment - Publicly Funded IP Review",
       company: fields.intended_name || 'Founder company',
@@ -2106,6 +2289,15 @@ export default function Dashboard() {
       showNdaToast(response.message || 'Unable to submit this review to admin.')
       return null
     }
+    // Decrement the session credit counter so the next request in this session
+    // sees the updated balance — both here and on the /dashboard/counsel page.
+    const updated: CounselCredits = {
+      ...credits,
+      creditsRemaining: Math.max(credits.creditsRemaining - 1, 0),
+      creditsUsed: credits.creditsUsed + 1,
+      usageThisMonth: credits.usageThisMonth + 1,
+    }
+    writeSessionCounselCredits(updated)
     showNdaToast('Your publicly funded IP review has been sent to admin for counsel assignment.')
     return response.data
   }, [])
@@ -2120,7 +2312,6 @@ export default function Dashboard() {
     saveSAProgress(8, data)
     completeSA()
     pushCompletedInstance('Service Agreement', data, completedAt)
-    decrementQueue('Service Agreement')
     showNdaToast('Service Agreement generated successfully. Your document is ready to download.')
   }
 
@@ -2129,7 +2320,6 @@ export default function Dashboard() {
     saveSLAProgress(10, data)
     completeSLA()
     pushCompletedInstance('Service Level Agreement (SLA)', data, completedAt)
-    decrementQueue('Service Level Agreement (SLA)')
     showNdaToast('Service Level Agreement generated successfully. Your document is ready to download.')
   }
 
@@ -2458,45 +2648,88 @@ export default function Dashboard() {
         )}
 
         {/* Landing-view modals: background stays as the landing page while the
-            modal is open. Closing (X) lands on New tab so the queued wizard is
-            visible. Completing lands on Completed tab. */}
+            modal is open. Closing (X) lands on In Progress tab. Completing lands on Completed tab. */}
         {isNdaModalOpen && (
           <NdaWizardModal
-            onClose={(step, data) => { saveProgress(step, data, true); setIsNdaModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
-            initialStep={ndaState.status === 'completed' ? 1 : (ndaState.step || 1)}
-            initialData={ndaState.status === 'completed' ? undefined : ndaState.data}
+            onClose={(step, data) => {
+              if (justCompletedRef.current) { justCompletedRef.current = false; return }
+              const cid = continuingInstanceRef.current
+              if (cid) { updateInProgressInstance(cid, step, Math.round(((step - 1) / 3) * 100), data); continuingInstanceRef.current = null }
+              else { decrementQueue('Non-Disclosure Agreement (NDA)'); pushInProgressInstance('Non-Disclosure Agreement (NDA)', step, Math.round(((step - 1) / 3) * 100), data) }
+              setIsNdaModalOpen(false); setActiveTab('inProgress'); openReturningDashboard()
+            }}
+            initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
+            initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as NdaWizardData | undefined) : undefined}
             onStepChange={(step, data) => saveProgress(step, data)}
-            onComplete={(data) => { handleNdaComplete(data); setIsNdaModalOpen(false); setActiveTab('completed'); openReturningDashboard() }}
+            onComplete={(data) => {
+              const cid = continuingInstanceRef.current
+              justCompletedRef.current = true; if (cid) { removeInProgressInstance(cid); continuingInstanceRef.current = null }
+              else { decrementQueue('Non-Disclosure Agreement (NDA)') }
+              handleNdaComplete(data); setIsNdaModalOpen(false); setActiveTab('completed'); openReturningDashboard()
+            }}
           />
         )}
 
         {isEmpModalOpen && (
           <EmploymentWizardModal
-            onClose={(step, data) => { if (step && data) saveEmpProgress(step, data, true); setIsEmpModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
-            initialStep={empState.status === 'completed' ? 1 : (empState.step || 1)}
-            initialData={empState.status === 'completed' ? undefined : empState.data}
+            onClose={(step, data) => {
+              if (justCompletedRef.current) { justCompletedRef.current = false; return }
+              const cid = continuingInstanceRef.current
+              if (cid) { updateInProgressInstance(cid, step ?? 1, Math.round(((( step ?? 1) - 1) / 5) * 100), data); continuingInstanceRef.current = null }
+              else { decrementQueue('Employment Offer Letter'); pushInProgressInstance('Employment Offer Letter', step ?? 1, Math.round((((step ?? 1) - 1) / 5) * 100), data) }
+              setIsEmpModalOpen(false); setActiveTab('inProgress'); openReturningDashboard()
+            }}
+            initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
+            initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as EmploymentWizardData | undefined) : undefined}
             onStepChange={(step, data) => saveEmpProgress(step, data)}
-            onComplete={(data) => { handleEmpComplete(data); setIsEmpModalOpen(false); setActiveTab('completed'); openReturningDashboard() }}
+            onComplete={(data) => {
+              const cid = continuingInstanceRef.current
+              justCompletedRef.current = true; if (cid) { removeInProgressInstance(cid); continuingInstanceRef.current = null }
+              else { decrementQueue('Employment Offer Letter') }
+              handleEmpComplete(data); setIsEmpModalOpen(false); setActiveTab('completed'); openReturningDashboard()
+            }}
           />
         )}
 
         {isPPModalOpen && (
           <PrivacyPolicyWizardModal
-            onClose={(step, data) => { savePPProgress(step, data, true); setIsPPModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
-            initialStep={ppState.status === 'completed' ? 1 : (ppState.step || 1)}
-            initialData={ppState.status === 'completed' ? undefined : { ...ppState.data, responsibleParty: ppState.data.responsibleParty || profile.legalName || profile.companyName }}
+            onClose={(step, data) => {
+              if (justCompletedRef.current) { justCompletedRef.current = false; return }
+              const cid = continuingInstanceRef.current
+              if (cid) { updateInProgressInstance(cid, step, Math.round(((step - 1) / 6) * 100), data); continuingInstanceRef.current = null }
+              else { decrementQueue('Privacy & Cookies Policy'); pushInProgressInstance('Privacy & Cookies Policy', step, Math.round(((step - 1) / 6) * 100), data) }
+              setIsPPModalOpen(false); setActiveTab('inProgress'); openReturningDashboard()
+            }}
+            initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
+            initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as PrivacyPolicyWizardData | undefined) : { responsibleParty: profile.legalName || profile.individualFullNames || profile.tradingName || '' } as Partial<PrivacyPolicyWizardData> as PrivacyPolicyWizardData}
             onStepChange={(step, data) => savePPProgress(step, data)}
-            onComplete={(data) => { handlePPComplete(data); setIsPPModalOpen(false); setActiveTab('completed'); openReturningDashboard() }}
+            onComplete={(data) => {
+              const cid = continuingInstanceRef.current
+              justCompletedRef.current = true; if (cid) { removeInProgressInstance(cid); continuingInstanceRef.current = null }
+              else { decrementQueue('Privacy & Cookies Policy') }
+              handlePPComplete(data); setIsPPModalOpen(false); setActiveTab('completed'); openReturningDashboard()
+            }}
           />
         )}
 
         {isFAModalOpen && (
           <FounderAgreementWizardModal
-            onClose={(step, data) => { if (step && data) saveFAProgress(step, data, true); setIsFAModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
-            initialStep={faState.status === 'completed' ? 1 : (faState.step || 1)}
-            initialData={faState.status === 'completed' ? undefined : faState.data}
+            onClose={(step, data) => {
+              if (justCompletedRef.current) { justCompletedRef.current = false; return }
+              const cid = continuingInstanceRef.current
+              if (cid) { updateInProgressInstance(cid, step ?? 1, Math.round((((step ?? 1) - 1) / 7) * 100), data); continuingInstanceRef.current = null }
+              else { decrementQueue('Founders agreement and IP assignment'); pushInProgressInstance('Founders agreement and IP assignment', step ?? 1, Math.round((((step ?? 1) - 1) / 7) * 100), data) }
+              setIsFAModalOpen(false); setActiveTab('inProgress'); openReturningDashboard()
+            }}
+            initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
+            initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as FounderAgreementWizardData | undefined) : undefined}
             onStepChange={(step, data) => saveFAProgress(step, data)}
-            onComplete={(data) => { handleFAComplete(data); setIsFAModalOpen(false); setActiveTab('completed'); openReturningDashboard() }}
+            onComplete={(data) => {
+              const cid = continuingInstanceRef.current
+              justCompletedRef.current = true; if (cid) { removeInProgressInstance(cid); continuingInstanceRef.current = null }
+              else { decrementQueue('Founders agreement and IP assignment') }
+              handleFAComplete(data); setIsFAModalOpen(false); setActiveTab('completed'); openReturningDashboard()
+            }}
             onRouteToCounsel={routeFounderPublicFundingToCounsel}
             onRefreshPublicFundingReview={refreshFounderPublicFundingReview}
           />
@@ -2504,23 +2737,55 @@ export default function Dashboard() {
 
         {isSAModalOpen && (
           <ServiceAgreementWizardModal
-            onClose={() => { setIsSAModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
-            initialStep={saState.status === 'completed' ? 1 : saState.step + 1}
-            initialData={saState.status === 'completed' ? undefined : saState.data}
+            onClose={() => {
+              if (justCompletedRef.current) { justCompletedRef.current = false; return }
+              const cid = continuingInstanceRef.current
+              if (cid) { updateInProgressInstance(cid, saState.step, saState.progress, saState.data); continuingInstanceRef.current = null }
+              else { decrementQueue('Service Agreement'); pushInProgressInstance('Service Agreement', saState.step, saState.progress, saState.data) }
+              setIsSAModalOpen(false); setActiveTab('inProgress'); openReturningDashboard()
+            }}
+            initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
+            initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as ServiceAgreementWizardData | undefined) : undefined}
             onStepChange={(step, data) => saveSAProgress(step, data)}
-            onComplete={(data) => { handleSAComplete(data); setIsSAModalOpen(false); setActiveTab('completed'); openReturningDashboard() }}
+            onComplete={(data) => {
+              const cid = continuingInstanceRef.current
+              justCompletedRef.current = true; if (cid) { removeInProgressInstance(cid); continuingInstanceRef.current = null }
+              else { decrementQueue('Service Agreement') }
+              handleSAComplete(data); setIsSAModalOpen(false); setActiveTab('completed'); openReturningDashboard()
+            }}
           />
         )}
 
         {isSLAModalOpen && (
           <SlaWizardModal
-            onClose={(step, data) => { if (step && data) saveSLAProgress(step, data, true); setIsSLAModalOpen(false); setActiveTab('inProgress'); openReturningDashboard() }}
-            initialStep={slaState.status === 'completed' ? 1 : (slaState.step || 1)}
-            initialData={slaState.status === 'completed' ? undefined : slaState.data}
+            onClose={(step, data) => {
+              if (justCompletedRef.current) { justCompletedRef.current = false; return }
+              const cid = continuingInstanceRef.current
+              if (cid) { updateInProgressInstance(cid, step ?? 1, Math.round((((step ?? 1) - 1) / 9) * 100), data); continuingInstanceRef.current = null }
+              else { decrementQueue('Service Level Agreement (SLA)'); pushInProgressInstance('Service Level Agreement (SLA)', step ?? 1, Math.round((((step ?? 1) - 1) / 9) * 100), data) }
+              setIsSLAModalOpen(false); setActiveTab('inProgress'); openReturningDashboard()
+            }}
+            initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
+            initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as SlaWizardData | undefined) : undefined}
             onStepChange={(step, data) => saveSLAProgress(step, data)}
-            onComplete={(data) => { handleSLAComplete(data); setIsSLAModalOpen(false); setActiveTab('completed'); openReturningDashboard() }}
+            onComplete={(data) => {
+              const cid = continuingInstanceRef.current
+              justCompletedRef.current = true; if (cid) { removeInProgressInstance(cid); continuingInstanceRef.current = null }
+              else { decrementQueue('Service Level Agreement (SLA)') }
+              handleSLAComplete(data); setIsSLAModalOpen(false); setActiveTab('completed'); openReturningDashboard()
+            }}
           />
         )}
+
+        <CounselCreditsModal
+          isOpen={isNoCounselCreditModalOpen}
+          onClose={() => setIsNoCounselCreditModalOpen(false)}
+          currentPlan={counselCreditsForGate?.plan ?? subscription?.planName ?? 'Launchpad'}
+          onTopUp={(plan: TopUpPlan) => {
+            setIsNoCounselCreditModalOpen(false)
+            navigate('/dashboard/counsel/topup', { state: { plan, credits: counselCreditsForGate } })
+          }}
+        />
 
         {billingActiveModal === 'upgrade-plans' && (
           <UpgradePlansModal
@@ -2650,7 +2915,7 @@ export default function Dashboard() {
           {/* ── Tab counts ────────────────────────────────────────────── */}
           {(() => {
             const newCount = availableWizards.reduce((sum, w) => sum + w.queuedCount, 0)
-            const inProgressCount = inProgressTitles.size
+            const inProgressCount = inProgressInstances.length
             const completedCount = completedInstances.length
             return (
               <div className="user-dashboard__tabs" role="tablist" aria-label="Dashboard workflow status">
@@ -2665,7 +2930,7 @@ export default function Dashboard() {
                 >
                   New
                   {newCount > 0 && (
-                    <span className="user-dashboard__tab-badge" aria-label={`${newCount} queued`}>
+                    <span className="user-dashboard__tab-badge" aria-label={`${newCount} available`}>
                       {newCount}
                     </span>
                   )}
@@ -2710,7 +2975,6 @@ export default function Dashboard() {
             <div className="user-dashboard__new-list" role="tabpanel">
               {availableWizards.map((wizard) => {
                 if (wizard.queuedCount <= 0) return null
-                const isRunning = inProgressTitles.has(wizard.title)
                 return (
                   <article className="user-dashboard__new-row" key={`${wizard.id}-new`}>
                     <div className="user-dashboard__new-row-left">
@@ -2733,29 +2997,16 @@ export default function Dashboard() {
                         <strong className="user-dashboard__new-row-meta-count">
                           {hasExhaustedWizardRuns
                             ? 'Monthly limit reached'
-                            : isRunning
-                              ? `${wizard.queuedCount} queued · 1 in progress`
-                              : `${wizard.queuedCount} queued`}
+                            : `${wizard.queuedCount} available`}
                         </strong>
                       </div>
-                      {isRunning ? (
-                        <button
-                          type="button"
-                          className="user-dashboard__new-row-btn user-dashboard__new-row-btn--resume"
-                          onClick={() => setActiveTab('inProgress')}
-                          title="Finish the current run before starting the next"
-                        >
-                          <ArrowRight size={14} /> Resume
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="user-dashboard__new-row-btn"
-                          onClick={() => handleStart(wizard.title)}
-                        >
-                          <Play size={14} /> Start
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className="user-dashboard__new-row-btn"
+                        onClick={() => handleStart(wizard.title)}
+                      >
+                        <Play size={14} /> Start
+                      </button>
                     </div>
                   </article>
                 )
@@ -2775,127 +3026,38 @@ export default function Dashboard() {
 
           {derivedTab === 'inProgress' && (
             <div className="user-dashboard__progress-grid" role="tabpanel">
-              {ndaState.status === 'inProgress' && (
-                <article className="user-dashboard__progress-card">
-                  <h3>Non-Disclosure Agreement (NDA)</h3>
+              {inProgressInstances.map((inst) => (
+                <article className="user-dashboard__progress-card" key={inst.id}>
+                  <h3>{inst.wizardType}</h3>
                   <span className="user-dashboard__status-badge">In Progress</span>
                   <div className="user-dashboard__progress-row">
                     <span>Progress</span>
-                    <strong>{ndaState.progress}%</strong>
+                    <strong>{inst.progress}%</strong>
                   </div>
                   <div className="user-dashboard__progress-track">
-                    <span style={{ width: `${ndaState.progress}%` }} />
+                    <span style={{ width: `${inst.progress}%` }} />
                   </div>
                   <div className="user-dashboard__progress-footer">
-                    <span>{relativeUpdated(ndaState.startedAt ?? undefined)}</span>
-                    <button type="button" onClick={() => { startWizard(); setIsNdaModalOpen(true) }}>
+                    <span>{relativeUpdated(inst.startedAt)}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        continuingInstanceRef.current = inst.id
+                        if (inst.wizardType === 'Non-Disclosure Agreement (NDA)') { resetNda(); startWizard(); setIsNdaModalOpen(true) }
+                        else if (inst.wizardType === 'Employment Offer Letter') { resetEmp(); startEmp(); setIsEmpModalOpen(true) }
+                        else if (inst.wizardType === 'Privacy & Cookies Policy') { resetPP(); startPP(); setIsPPModalOpen(true) }
+                        else if (inst.wizardType === 'Founders agreement and IP assignment') { resetFA(); startFA(); setIsFAModalOpen(true) }
+                        else if (inst.wizardType === 'Service Agreement') { resetSA(); startSA(); setIsSAModalOpen(true) }
+                        else if (inst.wizardType === 'Service Level Agreement (SLA)') { resetSLA(); startSLA(); setIsSLAModalOpen(true) }
+                      }}
+                    >
                       Continue <ArrowRight size={15} />
                     </button>
                   </div>
                 </article>
-              )}
+              ))}
 
-              {empState.status === 'inProgress' && (
-                <article className="user-dashboard__progress-card">
-                  <h3>Employment Offer Letter</h3>
-                  <span className="user-dashboard__status-badge">In Progress</span>
-                  <div className="user-dashboard__progress-row">
-                    <span>Progress</span>
-                    <strong>{empState.progress}%</strong>
-                  </div>
-                  <div className="user-dashboard__progress-track">
-                    <span style={{ width: `${empState.progress}%` }} />
-                  </div>
-                  <div className="user-dashboard__progress-footer">
-                    <span>{relativeUpdated(empState.startedAt ?? undefined)}</span>
-                    <button type="button" onClick={() => { startEmp(); setIsEmpModalOpen(true) }}>
-                      Continue <ArrowRight size={15} />
-                    </button>
-                  </div>
-                </article>
-              )}
-
-              {ppState.status === 'inProgress' && (
-                <article className="user-dashboard__progress-card">
-                  <h3>Privacy Policy (POPIA Compliant)</h3>
-                  <span className="user-dashboard__status-badge">In Progress</span>
-                  <div className="user-dashboard__progress-row">
-                    <span>Progress</span>
-                    <strong>{ppState.progress}%</strong>
-                  </div>
-                  <div className="user-dashboard__progress-track">
-                    <span style={{ width: `${ppState.progress}%` }} />
-                  </div>
-                  <div className="user-dashboard__progress-footer">
-                    <span>{relativeUpdated(ppState.startedAt ?? undefined)}</span>
-                    <button type="button" onClick={() => { startPP(); setIsPPModalOpen(true) }}>
-                      Continue <ArrowRight size={15} />
-                    </button>
-                  </div>
-                </article>
-              )}
-
-              {faState.status === 'inProgress' && (
-                <article className="user-dashboard__progress-card">
-                  <h3>Founders agreement and IP assignment</h3>
-                  <span className="user-dashboard__status-badge">In Progress</span>
-                  <div className="user-dashboard__progress-row">
-                    <span>Progress</span>
-                    <strong>{faState.progress}%</strong>
-                  </div>
-                  <div className="user-dashboard__progress-track">
-                    <span style={{ width: `${faState.progress}%` }} />
-                  </div>
-                  <div className="user-dashboard__progress-footer">
-                    <span>{relativeUpdated(faState.startedAt ?? undefined)}</span>
-                    <button type="button" onClick={() => { startFA(); setIsFAModalOpen(true) }}>
-                      Continue <ArrowRight size={15} />
-                    </button>
-                  </div>
-                </article>
-              )}
-
-              {saState.status === 'inProgress' && (
-                <article className="user-dashboard__progress-card">
-                  <h3>Service Agreement</h3>
-                  <span className="user-dashboard__status-badge">In Progress</span>
-                  <div className="user-dashboard__progress-row">
-                    <span>Progress</span>
-                    <strong>{saState.progress}%</strong>
-                  </div>
-                  <div className="user-dashboard__progress-track">
-                    <span style={{ width: `${saState.progress}%` }} />
-                  </div>
-                  <div className="user-dashboard__progress-footer">
-                    <span>{relativeUpdated(saState.startedAt ?? undefined)}</span>
-                    <button type="button" onClick={() => { startSA(); setIsSAModalOpen(true) }}>
-                      Continue <ArrowRight size={15} />
-                    </button>
-                  </div>
-                </article>
-              )}
-
-              {slaState.status === 'inProgress' && (
-                <article className="user-dashboard__progress-card">
-                  <h3>Service Level Agreement (SLA)</h3>
-                  <span className="user-dashboard__status-badge">In Progress</span>
-                  <div className="user-dashboard__progress-row">
-                    <span>Progress</span>
-                    <strong>{slaState.progress}%</strong>
-                  </div>
-                  <div className="user-dashboard__progress-track">
-                    <span style={{ width: `${slaState.progress}%` }} />
-                  </div>
-                  <div className="user-dashboard__progress-footer">
-                    <span>{relativeUpdated(slaState.startedAt ?? undefined)}</span>
-                    <button type="button" onClick={() => { startSLA(); setIsSLAModalOpen(true) }}>
-                      Continue <ArrowRight size={15} />
-                    </button>
-                  </div>
-                </article>
-              )}
-
-              {[ndaState, empState, ppState, faState, saState, slaState].every((s) => s.status !== 'inProgress') && (
+              {inProgressInstances.length === 0 && (
                 <div className="user-dashboard__empty-state">
                   <FileText size={32} />
                   <p>No documents in progress.</p>
@@ -3083,9 +3245,6 @@ export default function Dashboard() {
                 <div className="user-dashboard__empty-state">
                   <CircleCheckBig size={32} />
                   <p>No completed documents yet.</p>
-                  <button type="button" className="user-dashboard__gold-button" onClick={browseWizards}>
-                    Start a Wizard <ArrowRight size={16} />
-                  </button>
                 </div>
               )}
             </div>
@@ -3149,41 +3308,85 @@ export default function Dashboard() {
 
       {isNdaModalOpen && (
         <NdaWizardModal
-          onClose={(step, data) => { saveProgress(step, data, true); setIsNdaModalOpen(false) }}
-          initialStep={ndaState.status === 'completed' ? 1 : (ndaState.step || 1)}
-          initialData={ndaState.status === 'completed' ? undefined : ndaState.data}
+          onClose={(step, data) => {
+            if (justCompletedRef.current) { justCompletedRef.current = false; return }
+            const cid = continuingInstanceRef.current
+            if (cid) { updateInProgressInstance(cid, step, Math.round(((step - 1) / 3) * 100), data); continuingInstanceRef.current = null }
+            else { decrementQueue('Non-Disclosure Agreement (NDA)'); pushInProgressInstance('Non-Disclosure Agreement (NDA)', step, Math.round(((step - 1) / 3) * 100), data) }
+            setIsNdaModalOpen(false)
+          }}
+          initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
+          initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as NdaWizardData | undefined) : undefined}
           onStepChange={(step, data) => saveProgress(step, data)}
-          onComplete={(data) => { handleNdaComplete(data); setIsNdaModalOpen(false) }}
+          onComplete={(data) => {
+            const cid = continuingInstanceRef.current
+            justCompletedRef.current = true; if (cid) { removeInProgressInstance(cid); continuingInstanceRef.current = null }
+            else { decrementQueue('Non-Disclosure Agreement (NDA)') }
+            handleNdaComplete(data); setIsNdaModalOpen(false)
+          }}
         />
       )}
 
       {isEmpModalOpen && (
         <EmploymentWizardModal
-          onClose={(step, data) => { if (step && data) saveEmpProgress(step, data, true); setIsEmpModalOpen(false) }}
-          initialStep={empState.status === 'completed' ? 1 : (empState.step || 1)}
-          initialData={empState.status === 'completed' ? undefined : empState.data}
+          onClose={(step, data) => {
+            if (justCompletedRef.current) { justCompletedRef.current = false; return }
+            const cid = continuingInstanceRef.current
+            if (cid) { updateInProgressInstance(cid, step ?? 1, Math.round((((step ?? 1) - 1) / 5) * 100), data); continuingInstanceRef.current = null }
+            else { decrementQueue('Employment Offer Letter'); pushInProgressInstance('Employment Offer Letter', step ?? 1, Math.round((((step ?? 1) - 1) / 5) * 100), data) }
+            setIsEmpModalOpen(false)
+          }}
+          initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
+          initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as EmploymentWizardData | undefined) : undefined}
           onStepChange={(step, data) => saveEmpProgress(step, data)}
-          onComplete={(data) => { handleEmpComplete(data); setIsEmpModalOpen(false) }}
+          onComplete={(data) => {
+            const cid = continuingInstanceRef.current
+            justCompletedRef.current = true; if (cid) { removeInProgressInstance(cid); continuingInstanceRef.current = null }
+            else { decrementQueue('Employment Offer Letter') }
+            handleEmpComplete(data); setIsEmpModalOpen(false)
+          }}
         />
       )}
 
       {isPPModalOpen && (
         <PrivacyPolicyWizardModal
-          onClose={(step, data) => { savePPProgress(step, data, true); setIsPPModalOpen(false) }}
-          initialStep={ppState.status === 'completed' ? 1 : (ppState.step || 1)}
-          initialData={ppState.status === 'completed' ? undefined : { ...ppState.data, responsibleParty: ppState.data.responsibleParty || profile.legalName || profile.companyName }}
+          onClose={(step, data) => {
+            if (justCompletedRef.current) { justCompletedRef.current = false; return }
+            const cid = continuingInstanceRef.current
+            if (cid) { updateInProgressInstance(cid, step, Math.round(((step - 1) / 6) * 100), data); continuingInstanceRef.current = null }
+            else { decrementQueue('Privacy & Cookies Policy'); pushInProgressInstance('Privacy & Cookies Policy', step, Math.round(((step - 1) / 6) * 100), data) }
+            setIsPPModalOpen(false)
+          }}
+          initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
+          initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as PrivacyPolicyWizardData | undefined) : { responsibleParty: profile.legalName || profile.individualFullNames || profile.tradingName || '' } as Partial<PrivacyPolicyWizardData> as PrivacyPolicyWizardData}
           onStepChange={(step, data) => savePPProgress(step, data)}
-          onComplete={(data) => { handlePPComplete(data); setIsPPModalOpen(false) }}
+          onComplete={(data) => {
+            const cid = continuingInstanceRef.current
+            justCompletedRef.current = true; if (cid) { removeInProgressInstance(cid); continuingInstanceRef.current = null }
+            else { decrementQueue('Privacy & Cookies Policy') }
+            handlePPComplete(data); setIsPPModalOpen(false)
+          }}
         />
       )}
 
       {isFAModalOpen && (
         <FounderAgreementWizardModal
-          onClose={(step, data) => { if (step && data) saveFAProgress(step, data, true); setIsFAModalOpen(false) }}
-          initialStep={faState.status === 'completed' ? 1 : (faState.step || 1)}
-          initialData={faState.status === 'completed' ? undefined : faState.data}
+          onClose={(step, data) => {
+            if (justCompletedRef.current) { justCompletedRef.current = false; return }
+            const cid = continuingInstanceRef.current
+            if (cid) { updateInProgressInstance(cid, step ?? 1, Math.round((((step ?? 1) - 1) / 7) * 100), data); continuingInstanceRef.current = null }
+            else { decrementQueue('Founders agreement and IP assignment'); pushInProgressInstance('Founders agreement and IP assignment', step ?? 1, Math.round((((step ?? 1) - 1) / 7) * 100), data) }
+            setIsFAModalOpen(false)
+          }}
+          initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
+          initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as FounderAgreementWizardData | undefined) : undefined}
           onStepChange={(step, data) => saveFAProgress(step, data)}
-          onComplete={(data) => { handleFAComplete(data); setIsFAModalOpen(false) }}
+          onComplete={(data) => {
+            const cid = continuingInstanceRef.current
+            justCompletedRef.current = true; if (cid) { removeInProgressInstance(cid); continuingInstanceRef.current = null }
+            else { decrementQueue('Founders agreement and IP assignment') }
+            handleFAComplete(data); setIsFAModalOpen(false)
+          }}
           onRouteToCounsel={routeFounderPublicFundingToCounsel}
           onRefreshPublicFundingReview={refreshFounderPublicFundingReview}
         />
@@ -3191,21 +3394,43 @@ export default function Dashboard() {
 
       {isSAModalOpen && (
         <ServiceAgreementWizardModal
-          onClose={() => setIsSAModalOpen(false)}
-          initialStep={saState.status === 'completed' ? 1 : saState.step + 1}
-          initialData={saState.status === 'completed' ? undefined : saState.data}
+          onClose={() => {
+            if (justCompletedRef.current) { justCompletedRef.current = false; return }
+            const cid = continuingInstanceRef.current
+            if (cid) { updateInProgressInstance(cid, saState.step, saState.progress, saState.data); continuingInstanceRef.current = null }
+            else { decrementQueue('Service Agreement'); pushInProgressInstance('Service Agreement', saState.step, saState.progress, saState.data) }
+            setIsSAModalOpen(false)
+          }}
+          initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
+          initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as ServiceAgreementWizardData | undefined) : undefined}
           onStepChange={(step, data) => saveSAProgress(step, data)}
-          onComplete={(data) => { handleSAComplete(data); setIsSAModalOpen(false) }}
+          onComplete={(data) => {
+            const cid = continuingInstanceRef.current
+            justCompletedRef.current = true; if (cid) { removeInProgressInstance(cid); continuingInstanceRef.current = null }
+            else { decrementQueue('Service Agreement') }
+            handleSAComplete(data); setIsSAModalOpen(false)
+          }}
         />
       )}
 
       {isSLAModalOpen && (
         <SlaWizardModal
-          onClose={(step, data) => { if (step && data) saveSLAProgress(step, data, true); setIsSLAModalOpen(false) }}
-          initialStep={slaState.status === 'completed' ? 1 : (slaState.step || 1)}
-          initialData={slaState.status === 'completed' ? undefined : slaState.data}
+          onClose={(step, data) => {
+            if (justCompletedRef.current) { justCompletedRef.current = false; return }
+            const cid = continuingInstanceRef.current
+            if (cid) { updateInProgressInstance(cid, step ?? 1, Math.round((((step ?? 1) - 1) / 9) * 100), data); continuingInstanceRef.current = null }
+            else { decrementQueue('Service Level Agreement (SLA)'); pushInProgressInstance('Service Level Agreement (SLA)', step ?? 1, Math.round((((step ?? 1) - 1) / 9) * 100), data) }
+            setIsSLAModalOpen(false)
+          }}
+          initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
+          initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as SlaWizardData | undefined) : undefined}
           onStepChange={(step, data) => saveSLAProgress(step, data)}
-          onComplete={(data) => { handleSLAComplete(data); setIsSLAModalOpen(false) }}
+          onComplete={(data) => {
+            const cid = continuingInstanceRef.current
+            justCompletedRef.current = true; if (cid) { removeInProgressInstance(cid); continuingInstanceRef.current = null }
+            else { decrementQueue('Service Level Agreement (SLA)') }
+            handleSLAComplete(data); setIsSLAModalOpen(false)
+          }}
         />
       )}
 
@@ -3215,6 +3440,16 @@ export default function Dashboard() {
           onClose={() => setComingSoonTitle(null)}
         />
       )}
+
+      <CounselCreditsModal
+        isOpen={isNoCounselCreditModalOpen}
+        onClose={() => setIsNoCounselCreditModalOpen(false)}
+        currentPlan={counselCreditsForGate?.plan ?? subscription?.planName ?? 'Launchpad'}
+        onTopUp={(plan: TopUpPlan) => {
+          setIsNoCounselCreditModalOpen(false)
+          navigate('/dashboard/counsel/topup', { state: { plan, credits: counselCreditsForGate } })
+        }}
+      />
 
     </DashboardShell>
   )

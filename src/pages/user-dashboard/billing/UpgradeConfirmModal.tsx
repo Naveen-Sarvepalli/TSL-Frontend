@@ -23,7 +23,7 @@ interface Props {
 }
 
 function fmt(n: number) {
-  return `R${Math.abs(n).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `R${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export function UpgradeConfirmModal({
@@ -92,11 +92,11 @@ export function UpgradeConfirmModal({
             <dl className="bs-confirm-modal__breakdown">
               <div>
                 <dt>Current plan</dt>
-                <dd>{preview.currentPlanName} — R{preview.currentPrice.toLocaleString('en-ZA')}/mo</dd>
+                <dd>{preview.currentPlanName} — R{preview.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mo</dd>
               </div>
               <div>
                 <dt>New plan</dt>
-                <dd>{preview.newPlanName} — R{preview.newPrice.toLocaleString('en-ZA')}/mo</dd>
+                <dd>{preview.newPlanName} — R{preview.newPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mo</dd>
               </div>
               <div>
                 <dt>{preview.isFullMonthlyCharge ? 'Billing period' : 'Days remaining'}</dt>
@@ -110,15 +110,11 @@ export function UpgradeConfirmModal({
                 <dt>{preview.isFullMonthlyCharge ? `Full monthly ${preview.newPlanName} charge` : `Prorated ${preview.newPlanName} charge`}</dt>
                 <dd>{fmt(preview.proratedNewCharge)}</dd>
               </div>
-              <div>
-                <dt>VAT (15%)</dt>
-                <dd>{fmt(preview.tax)}</dd>
-              </div>
             </dl>
 
             <div className="bs-confirm-modal__total">
               <span>Total due today</span>
-              <strong>{fmt(preview.totalDueToday)}</strong>
+              <strong>{fmt(preview.totalDueToday - preview.tax)}</strong>
             </div>
 
             {preview.paymentMethod && (
@@ -152,7 +148,7 @@ export function UpgradeConfirmModal({
             {actionLoading
               ? <><Loader2 size={16} className="bs-spin" /> Processing…</>
               : preview
-                ? `Confirm & pay ${fmt(preview.totalDueToday)}`
+                ? `Confirm & pay ${fmt(preview.totalDueToday - preview.tax)}`
                 : `Upgrade to ${plan.name}`}
           </button>
         </div>
