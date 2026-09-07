@@ -25,16 +25,15 @@ import './FounderAgreementWizardModal.css'
 
 export type { FounderAgreementWizardData }
 
-type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7
+type Step = 1 | 2 | 3 | 4 | 5 | 6
 
 const STEPS = [
-  'Company status',
-  'Founders & equity',
-  'Vesting',
-  'Decisions & roles',
-  'Intellectual property',
-  'Protections & legal',
-  'Review',
+  'COMPANY STATUS',
+  'FOUNDERS & EQUITY',
+  'VESTING',
+  'DECISIONS & ROLES',
+  'INTELLECTUAL PROPERTY',
+  'PROTECTIONS & LEGAL',
 ] as const
 
 function PreviewField({ label, value }: { label: string; value: string }) {
@@ -64,13 +63,13 @@ function PreviewSection({ num, title, onEdit, children }: {
 }
 
 /* ─── Step bar ───────────────────────────────────────────── */
-function StepBar({ current }: { current: Step }) {
+function StepBar({ current, isPreview }: { current: Step; isPreview: boolean }) {
   return (
     <div className="nda-modal__steps fa-steps">
       {STEPS.map((label, i) => {
         const num = (i + 1) as Step
-        const done = num < current
-        const active = num === current
+        const done = isPreview || num < current
+        const active = !isPreview && num === current
         return (
           <div key={label} className="nda-modal__step-item fa-step-item">
             {i > 0 && <div className="fa-step-connector" />}
@@ -243,17 +242,40 @@ function Field({ label, required, optional, hint, hintAfter, error, children }: 
 function validateFounderField(key: string, value: string): string {
   if (key === 'fullNames') {
     if (!value.trim()) return 'Full name is required.'
-    if (/\d/.test(value)) return 'Full name must not contain numbers.'
+    if (value.trim().length > 100) return 'Full name must be 100 characters or fewer.'
+    if (!/^[A-Za-z\s'\-\.]+$/.test(value.trim())) return 'Full name may only contain letters, spaces, hyphens, apostrophes, and dots.'
     return ''
   }
   if (key === 'idNumber') {
-    if (!value.trim()) return 'ID number is required.'
-    if (!/^\d{13}$/.test(value.trim())) return 'Must be exactly 13 digits.'
+    const v = value.trim()
+    if (!v) return 'ID number is required.'
+    if (!/^\d{13}$/.test(v)) return 'Must be exactly 13 digits.'
+    // Date portion: YYMMDD
+    const mm = parseInt(v.slice(2, 4), 10)
+    const dd = parseInt(v.slice(4, 6), 10)
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return 'ID number contains an invalid date.'
+    // SA ID Luhn checksum
+    // Step 1: sum digits at odd positions (0-based: 0,2,4,6,8,10)
+    let oddSum = 0
+    for (let i = 0; i < 12; i += 2) oddSum += parseInt(v[i], 10)
+    // Step 2: concatenate digits at even positions (0-based: 1,3,5,7,9,11), multiply by 2, sum all digits of result
+    const evenConcat = v[1] + v[3] + v[5] + v[7] + v[9] + v[11]
+    const evenDoubled = String(parseInt(evenConcat, 10) * 2)
+    let evenSum = 0
+    for (const c of evenDoubled) evenSum += parseInt(c, 10)
+    const total = (oddSum + evenSum) % 10
+    const checkDigit = total === 0 ? 0 : 10 - total
+    if (checkDigit !== parseInt(v[12], 10)) return 'ID number is not a valid South African ID.'
     return ''
   }
   if (key === 'role') {
     if (!value.trim()) return 'Role is required.'
     if (/\d/.test(value)) return 'Role must not contain numbers.'
+    if (value.length > 60) return 'Role must be 60 characters or fewer.'
+    return ''
+  }
+  if (key === 'commitment') {
+    if (!value.trim()) return 'Time commitment is required.'
     return ''
   }
   if (key === 'equityPct') {
@@ -262,12 +284,17 @@ function validateFounderField(key: string, value: string): string {
     if (isNaN(pct) || pct <= 0 || pct > 100) return 'Must be a number between 0 and 100.'
     return ''
   }
+  if (key === 'capital') {
+    if (!value.trim()) return ''
+    if (!/^\d+(\.\d{1,2})?$/.test(value.trim())) return 'Capital contributed must be a valid amount (e.g. 50000 or 50000.00).'
+    return ''
+  }
   return ''
 }
 
-function FounderRow({ founder, index, canRemove, onChange, onRemove, submitErrors, disabled }: {
+function FounderRow({ founder, index, canRemove, onChange, onRemove, onEquityTouch, submitErrors, disabled }: {
   founder: FAFounder; index: number; canRemove: boolean
-  onChange: (f: FAFounder) => void; onRemove: () => void
+  onChange: (f: FAFounder) => void; onRemove: () => void; onEquityTouch?: () => void
   submitErrors?: Record<string, string>; disabled?: boolean
 }) {
   const [liveErrors, setLiveErrors] = useState<Record<string, string>>({})
@@ -277,6 +304,7 @@ function FounderRow({ founder, index, canRemove, onChange, onRemove, submitError
     onChange({ ...founder, [key]: val })
     const err = validateFounderField(key as string, val as string)
     setLiveErrors(prev => ({ ...prev, [key as string]: err }))
+    if (key === 'equityPct') onEquityTouch?.()
   }
 
   // submit-time errors seed the display; live errors clear them as user fixes
@@ -287,7 +315,7 @@ function FounderRow({ founder, index, canRemove, onChange, onRemove, submitError
         <div className="nda-modal__form-group">
           <label className="nda-modal__label" style={labelStyle}>Full names <span className="nda-modal__required">*</span></label>
           <input className={`nda-modal__input${err.fullNames ? ' nda-modal__input--error' : ''}`} type="text" placeholder="e.g. Thandiwe Nkosi"
-            value={founder.fullNames} onChange={e => up('fullNames', e.target.value)} disabled={disabled} />
+            maxLength={100} value={founder.fullNames} onChange={e => up('fullNames', e.target.value)} disabled={disabled} />
           {err.fullNames && <p className="nda-modal__field-error">{err.fullNames}</p>}
         </div>
         <div className="nda-modal__form-group">
@@ -299,21 +327,22 @@ function FounderRow({ founder, index, canRemove, onChange, onRemove, submitError
         <div className="nda-modal__form-group">
           <label className="nda-modal__label" style={labelStyle}>Role <span className="nda-modal__required">*</span></label>
           <input className={`nda-modal__input${err.role ? ' nda-modal__input--error' : ''}`} type="text" placeholder="e.g. Chief executive officer"
-            value={founder.role} onChange={e => up('role', e.target.value)} disabled={disabled} />
+            maxLength={60} value={founder.role} onChange={e => up('role', e.target.value)} disabled={disabled} />
           {err.role && <p className="nda-modal__field-error">{err.role}</p>}
         </div>
         <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={labelStyle}>Time commitment</label>
-          <select className="nda-modal__input" value={founder.commitment}
+          <label className="nda-modal__label" style={labelStyle}>Time commitment <span className="nda-modal__required">*</span></label>
+          <select className={`nda-modal__input${err.commitment ? ' nda-modal__input--error' : ''}`} value={founder.commitment}
             onChange={e => up('commitment', e.target.value as FAFounder['commitment'])} disabled={disabled}>
             <option value="">Select…</option>
             <option>Full time</option>
             <option>Part time</option>
             <option>Advisory</option>
           </select>
+          {err.commitment && <p className="nda-modal__field-error">{err.commitment}</p>}
         </div>
       </div>
-      <div className="nda-modal__repeat-grid" style={{ gridTemplateColumns: '1fr 1fr auto' }}>
+      <div className="nda-modal__repeat-grid" style={{ gridTemplateColumns: '1fr 1fr auto', alignItems: 'start' }}>
         <div className="nda-modal__form-group">
           <label className="nda-modal__label" style={labelStyle}>Equity % <span className="nda-modal__required">*</span></label>
           <input className={`nda-modal__input${err.equityPct ? ' nda-modal__input--error' : ''}`} type="text" placeholder="e.g. 40"
@@ -322,8 +351,9 @@ function FounderRow({ founder, index, canRemove, onChange, onRemove, submitError
         </div>
         <div className="nda-modal__form-group">
           <label className="nda-modal__label" style={labelStyle}>Capital contributed</label>
-          <input className="nda-modal__input" type="text" placeholder="Optional"
+          <input className={`nda-modal__input${err.capital ? ' nda-modal__input--error' : ''}`} type="text" placeholder="Optional"
             value={founder.capital} onChange={e => up('capital', e.target.value)} disabled={disabled} />
+          {err.capital && <p className="nda-modal__field-error">{err.capital}</p>}
         </div>
         {canRemove && (
           <button type="button" className="nda-modal__row-remove" aria-label={`Remove founder ${index + 1}`}
@@ -546,14 +576,16 @@ export default function FounderAgreementWizardModal({
   // resumes at saved step + 1, so force every pending/rejected review back to
   // Screen 5 instead of allowing a resume directly on Screen 6 or the preview.
   const hasBlockedPublicFundingReview = initialData?.publiclyFunded === 'Yes' && initialData.publicFundingReviewStatus !== 'approved'
-  const resolved = (hasBlockedPublicFundingReview ? 5 : Math.min(Math.max(initialStep, 1), 7)) as Step
-  const [step, setStep] = useState<Step>(resolved)
+  const resolvedStep = hasBlockedPublicFundingReview ? 5 : Math.min(Math.max(initialStep, 1), 7)
+  const [step, setStep] = useState<Step>(Math.min(resolvedStep, 6) as Step)
+  const [isPreview, setIsPreview] = useState(resolvedStep === 7)
   const [data, setData] = useState<FounderAgreementWizardData>(() => ({
     ...FA_EMPTY_DATA,
     companyName: snapshotCompanyName || FA_EMPTY_DATA.companyName,
     ...initialData,
   }))
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [equityTouched, setEquityTouched] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isRoutingToCounsel, setIsRoutingToCounsel] = useState(false)
   const [counselToast, setCounselToast] = useState(false)
@@ -573,6 +605,7 @@ export default function FounderAgreementWizardModal({
   const ipSectionLocked = data.publiclyFunded === 'Yes' && (data.publicFundingReviewStatus === 'pending' || data.publicFundingReviewStatus === 'rejected')
   const goTo = (target: Step) => {
     setErrors({})
+    setIsPreview(false)
     setStep(isPublicFundingBlocked && target > 5 ? 5 : target)
   }
 
@@ -605,6 +638,7 @@ export default function FounderAgreementWizardModal({
   /* ── Founder mutations ── */
   const updateFounder = (idx: number, f: FAFounder) =>
     setData(prev => ({ ...prev, founders: prev.founders.map((x, i) => i === idx ? f : x) }))
+  const handleEquityTouch = () => setEquityTouched(true)
   const addFounder = () => setData(prev => ({ ...prev, founders: [...prev.founders, makeFounder(`f${Date.now()}`)] }))
   const removeFounder = (idx: number) =>
     setData(prev => prev.founders.length <= 1 ? prev : { ...prev, founders: prev.founders.filter((_, i) => i !== idx) })
@@ -645,13 +679,19 @@ export default function FounderAgreementWizardModal({
     if (s === 2) {
       if (!data.founders.some(f => f.fullNames.trim())) { e.founders = 'Add at least one founder.'; valid = false }
       data.founders.forEach((f, i) => {
-        const fields = ['fullNames', 'idNumber', 'role', 'equityPct'] as const
+        const fields = ['fullNames', 'idNumber', 'role', 'commitment', 'equityPct'] as const
         fields.forEach(key => {
           const fieldErr = validateFounderField(key, f[key] as string)
           if (fieldErr) { e[`founder_${i}_${key}`] = fieldErr; valid = false }
         })
       })
       if (!equityValid(data.founders)) { e.equity = 'Equity must total exactly 100%.'; valid = false }
+    }
+    if (s === 3 && data.vestingApplies === 'Yes') {
+      if (!data.goodLeaver.length) { e.goodLeaver = 'Select at least one good leaver definition.'; valid = false }
+    }
+    if (s === 4 && data.decisionModel === 'Majority with reserved matters unanimous') {
+      if (!data.reservedMatters.length) { e.reservedMatters = 'Select at least one reserved matter.'; valid = false }
     }
     if (s === 4 && data.reservedMatters.includes('Take on debt above a threshold')) {
       if (!data.debtThreshold.trim()) { e.debtThreshold = 'Enter a debt threshold value.'; valid = false }
@@ -690,6 +730,11 @@ export default function FounderAgreementWizardModal({
 
   /* ── Navigation ── */
   const next = () => {
+    if (isPreview) {
+      if (!validate(6)) { setIsPreview(false); setStep(6); return }
+      handleGenerate()
+      return
+    }
     const valid = validate(step)
     if (!valid) return
     if (step === 5 && data.publiclyFunded === 'Yes') {
@@ -699,16 +744,11 @@ export default function FounderAgreementWizardModal({
       return
     }
     onStepChange?.(step, data)
-    if (step === 7) {
-      // validate step 6 in case the user jumped here via Preview
-      if (!validate(6)) { setStep(6); return }
-      handleGenerate()
-      return
-    }
-    if (step < 7) setStep(s => (s + 1) as Step)
+    if (step === 6) { setIsPreview(true); return }
+    if (step < 6) setStep(s => (s + 1) as Step)
   }
   const prev = () => {
-    if (step === 7) { setStep(6); return }
+    if (isPreview) { setIsPreview(false); return }
     if (step > 1) setStep(s => (s - 1) as Step)
   }
 
@@ -756,7 +796,7 @@ export default function FounderAgreementWizardModal({
         <header className="nda-modal__header">
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
             <div>
-              <h2>Founders Agreement and IP Assignment</h2>
+              <h2>FOUNDERS AGREEMENT AND IP ASSIGNMENT</h2>
               <p className="nda-modal__header-subtitle">
                 Founders agreement with intellectual property assignment schedule · 4 run units · 6 screens, 37 fields
               </p>
@@ -766,7 +806,7 @@ export default function FounderAgreementWizardModal({
               <X size={16} />
             </button>
           </div>
-          <StepBar current={step} />
+          <StepBar current={step} isPreview={isPreview} />
         </header>
 
         {/* ── Counsel sent toast ── */}
@@ -796,12 +836,13 @@ export default function FounderAgreementWizardModal({
         {/* ── Body ── */}
         {!isGenerating && (
           <div className="nda-modal__body">
-            <div className="nda-modal__step-content">
+            {!isPreview && (
+              <div className="nda-modal__step-content">
 
               {/* ── Screen 1: Company status ── */}
               {step === 1 && (
                 <div className="nda-modal__party-block">
-                  <h3 className="nda-modal__party-title">Company status</h3>
+                  <h3 className="nda-modal__party-title">COMPANY STATUS</h3>
                   <p className="nda-modal__field-hint">
                     Whether the company is already incorporated. Where it isn't yet, the agreement binds the founders
                     personally and assigns to the company on incorporation.
@@ -845,14 +886,14 @@ export default function FounderAgreementWizardModal({
               {/* ── Screen 2: Founders and equity ── */}
               {step === 2 && (
                 <div className="nda-modal__party-block">
-                  <h3 className="nda-modal__party-title">Founders and equity</h3>
+                  <h3 className="nda-modal__party-title">FOUNDERS AND EQUITY</h3>
                   <p className="nda-modal__field-hint">
                     Every founder, their role, time commitment and equity split. Equity must total 100% before you can continue.
                   </p>
 
                   <EquityTotalBar founders={data.founders} />
 
-                  {!equityOk && (
+                  {!equityOk && equityTouched && (
                     <Banner
                       type="block"
                       title="Block — equity does not total 100%"
@@ -866,6 +907,7 @@ export default function FounderAgreementWizardModal({
                       {data.founders.map((f, i) => (
                         <FounderRow key={f.id} founder={f} index={i} canRemove={data.founders.length > 1}
                           onChange={updated => updateFounder(i, updated)} onRemove={() => removeFounder(i)}
+                          onEquityTouch={handleEquityTouch}
                           submitErrors={Object.fromEntries(Object.entries(errors).filter(([k]) => k.startsWith(`founder_${i}_`)).map(([k, v]) => [k.replace(`founder_${i}_`, ''), v]))}
                           disabled={ipSectionLocked} />
                       ))}
@@ -878,13 +920,13 @@ export default function FounderAgreementWizardModal({
               {/* ── Screen 3: Vesting ── */}
               {step === 3 && (
                 <div className="nda-modal__party-block">
-                  <h3 className="nda-modal__party-title">Vesting</h3>
+                  <h3 className="nda-modal__party-title">VESTING</h3>
                   <p className="nda-modal__field-hint">
                     Whether founder equity vests over time rather than being held outright from day one.
                   </p>
 
                   <Field label="Vesting applies" required
-                    hintAfter="Most investors will expect this. Help text explains why.">
+                    hintAfter="Most investors will expect this. Help text explains why investors expect it.">
                     <ToggleGroup options={['Yes', 'No']} value={data.vestingApplies}
                       onChange={v => set('vestingApplies', v as 'Yes' | 'No')} disabled={ipSectionLocked} />
                   </Field>
@@ -892,7 +934,7 @@ export default function FounderAgreementWizardModal({
                   {data.vestingApplies === 'No' && (
                     <Banner
                       type="warn"
-                      title="Warn — vesting disabled"
+                      title="Warn — Vesting disabled"
                       message="Most investors will require vesting to be added later, and adding it after a raise is harder than agreeing it now. You can still proceed on your own instruction."
                     />
                   )}
@@ -917,10 +959,9 @@ export default function FounderAgreementWizardModal({
                             <option>Quarterly</option>
                           </select>
                         </Field>
-                        <Field label="Acceleration" optional>
+                        <Field label="Acceleration" required>
                           <select className="nda-modal__input" value={data.acceleration}
                             onChange={e => set('acceleration', e.target.value)} disabled={ipSectionLocked}>
-                            <option value="">None selected</option>
                             <option>None</option>
                             <option>On change of control</option>
                             <option>On termination without cause</option>
@@ -928,16 +969,15 @@ export default function FounderAgreementWizardModal({
                           </select>
                         </Field>
                       </div>
-                      <Field label="Good leaver definition" optional>
+                      <Field label="Good leaver definition" required error={errors.goodLeaver}>
                         <MultiChips
                           options={['Death', 'Permanent disability', 'Removal without cause', 'Mutual agreement']}
                           value={data.goodLeaver} onChange={v => set('goodLeaver', v)} disabled={ipSectionLocked}
                         />
                       </Field>
-                      <Field label="Bad leaver consequence" optional>
+                      <Field label="Bad leaver consequence" required>
                         <select className="nda-modal__input" value={data.badLeaverEffect}
                           onChange={e => set('badLeaverEffect', e.target.value)} disabled={ipSectionLocked}>
-                          <option value="">None selected</option>
                           <option>Unvested forfeited</option>
                           <option>Unvested forfeited and vested repurchased at the lower of cost and fair value</option>
                         </select>
@@ -950,7 +990,7 @@ export default function FounderAgreementWizardModal({
               {/* ── Screen 4: Decisions and roles ── */}
               {step === 4 && (
                 <div className="nda-modal__party-block">
-                  <h3 className="nda-modal__party-title">Decisions and roles</h3>
+                  <h3 className="nda-modal__party-title">DECISIONS AND ROLES</h3>
                   <p className="nda-modal__field-hint">
                     How decisions get made, which matters need everyone's sign-off, and what happens when a founder leaves.
                   </p>
@@ -965,7 +1005,7 @@ export default function FounderAgreementWizardModal({
                   </Field>
 
                   {showReservedMatters && (
-                    <Field label="Reserved matters" optional="(needs unanimous approval)">
+                    <Field label="Reserved matters" required error={errors.reservedMatters}>
                       <MultiChips
                         options={[
                           'Issue new shares', 'Take on debt above a threshold', 'Sell the business',
@@ -1020,7 +1060,7 @@ export default function FounderAgreementWizardModal({
               {/* ── Screen 5: Intellectual property ── */}
               {step === 5 && (
                 <div className="nda-modal__party-block">
-                  <h3 className="nda-modal__party-title">Intellectual property</h3>
+                  <h3 className="nda-modal__party-title">INTELLECTUAL PROPERTY</h3>
                   <p className="nda-modal__field-hint">
                     What gets assigned to the company, what predates it, and whether anything about it needs Counsel's attention.
                   </p>
@@ -1118,7 +1158,7 @@ export default function FounderAgreementWizardModal({
               {/* ── Screen 6: Protections and legal ── */}
               {step === 6 && (
                 <div className="nda-modal__party-block">
-                  <h3 className="nda-modal__party-title">Protections and legal</h3>
+                  <h3 className="nda-modal__party-title">PROTECTIONS AND LEGAL</h3>
                   <p className="nda-modal__field-hint">
                     Confidentiality, restraint of trade, how deadlocks get resolved, and where disputes are heard.
                   </p>
@@ -1163,7 +1203,7 @@ export default function FounderAgreementWizardModal({
                       message="Restraints running longer than 24 months are harder to enforce. You can still proceed on your own instruction." />
                   )}
                   {showRestraintAreaWarn && (
-                    <Banner type="warn" title="Warn — worldwide restraint"
+                    <Banner type="warn" title="Warn — Worldwide restraint"
                       message="A worldwide restraint is a broad grant and is scrutinised more closely on enforcement. You can still proceed on your own instruction." />
                   )}
 
@@ -1209,14 +1249,17 @@ export default function FounderAgreementWizardModal({
                 </div>
               )}
 
-              {step === 7 && (
-                <>
+              </div>
+            )}
+
+            {isPreview && (
+              <div className="nda-modal__step-content nda-modal__step-content--preview">
                   <div className="nda-modal__preview-banner">
-                    <h3>Review your agreement</h3>
+                    <h3>Review your Founders Agreement</h3>
                     <p>Check all details below before generating the document. Use the edit buttons to jump back to any section.</p>
                   </div>
 
-                  <PreviewSection num={1} title="Company status" onEdit={() => goTo(1)}>
+                  <PreviewSection num={1} title="COMPANY STATUS" onEdit={() => goTo(1)}>
                     <div className="nda-modal__preview-row">
                       <PreviewField label="Company incorporated" value={fmt(data.isIncorporated)} />
                       <PreviewField label="Company" value={data.isIncorporated === 'Yes' ? fmt(data.companyName) : fmt(data.intendedName)} />
@@ -1226,7 +1269,7 @@ export default function FounderAgreementWizardModal({
                     )}
                   </PreviewSection>
 
-                  <PreviewSection num={2} title="Founders & equity" onEdit={() => goTo(2)}>
+                  <PreviewSection num={2} title="FOUNDERS & EQUITY" onEdit={() => goTo(2)}>
                     {data.founders.map((founder, index) => (
                       <div key={founder.id} className="nda-modal__preview-row">
                         <PreviewField label={`Founder ${index + 1}`} value={fmt(founder.fullNames)} />
@@ -1236,7 +1279,7 @@ export default function FounderAgreementWizardModal({
                     ))}
                   </PreviewSection>
 
-                  <PreviewSection num={3} title="Vesting" onEdit={() => goTo(3)}>
+                  <PreviewSection num={3} title="VESTING" onEdit={() => goTo(3)}>
                     <div className="nda-modal__preview-row">
                       <PreviewField label="Vesting applies" value={fmt(data.vestingApplies)} />
                       <PreviewField label="Vesting period" value={data.vestingMonths ? `${data.vestingMonths} months` : '—'} />
@@ -1248,7 +1291,7 @@ export default function FounderAgreementWizardModal({
                     <PreviewField label="Acceleration" value={fmt(data.acceleration)} />
                   </PreviewSection>
 
-                  <PreviewSection num={4} title="Decisions & roles" onEdit={() => goTo(4)}>
+                  <PreviewSection num={4} title="DECISIONS & ROLES" onEdit={() => goTo(4)}>
                     <PreviewField label="Decision model" value={fmt(data.decisionModel)} />
                     <PreviewField label="Reserved matters" value={data.reservedMatters.length ? data.reservedMatters.join(', ') : '—'} />
                     {showDebtThreshold && <PreviewField label="Debt threshold" value={fmt(data.debtThreshold)} />}
@@ -1258,7 +1301,7 @@ export default function FounderAgreementWizardModal({
                     </div>
                   </PreviewSection>
 
-                  <PreviewSection num={5} title="Intellectual property" onEdit={() => goTo(5)}>
+                  <PreviewSection num={5} title="INTELLECTUAL PROPERTY" onEdit={() => goTo(5)}>
                     <div className="nda-modal__preview-row">
                       <PreviewField label="Pre-incorporation IP assigned" value={fmt(data.ipPreIncorporation)} />
                       <PreviewField label="Publicly funded" value={fmt(data.publiclyFunded)} />
@@ -1268,7 +1311,7 @@ export default function FounderAgreementWizardModal({
                     <PreviewField label="Digital assets" value={data.digitalAssets.length ? `${data.digitalAssets.length} item(s)` : '—'} />
                   </PreviewSection>
 
-                  <PreviewSection num={6} title="Protections & legal" onEdit={() => goTo(6)}>
+                  <PreviewSection num={6} title="PROTECTIONS & LEGAL" onEdit={() => goTo(6)}>
                     <div className="nda-modal__preview-row">
                       <PreviewField label="Confidentiality" value={fmt(data.confidentiality)} />
                       <PreviewField label="Non-solicit" value={fmt(data.nonSolicit)} />
@@ -1287,10 +1330,8 @@ export default function FounderAgreementWizardModal({
                     </div>
                     <PreviewField label="Signatories" value={data.signatories.map(sig => sig.name).filter(Boolean).join(', ') || '—'} />
                   </PreviewSection>
-                </>
-              )}
-
-            </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1298,20 +1339,22 @@ export default function FounderAgreementWizardModal({
         {!isGenerating && (
           <footer className="nda-modal__footer">
             <button type="button" className="nda-modal__btn nda-modal__btn--secondary"
-              onClick={prev} disabled={step === 1}>
-              <ArrowLeft size={15} /> Previous
+              onClick={prev} disabled={step === 1 && !isPreview}>
+              <ArrowLeft size={15} /> {isPreview ? 'Back to Edit' : 'Previous'}
             </button>
 
             <span className="nda-modal__step-counter">
-              {step === 7 && !isComplete ? (
-                <span className="nda-modal__incomplete-warning">
-                  <AlertCircle size={14} />
-                  {missingCount > 0
-                    ? `${missingCount} item${missingCount !== 1 ? 's' : ''} incomplete`
-                    : 'Equity ≠ 100%'}
-                </span>
-              ) : step === 7 ? (
-                'Review'
+              {isPreview ? (
+                isComplete ? (
+                  'Review & Generate'
+                ) : (
+                  <span className="nda-modal__incomplete-warning">
+                    <AlertCircle size={14} />
+                    {missingCount > 0
+                      ? `${missingCount} item${missingCount !== 1 ? 's' : ''} incomplete`
+                      : 'Equity ≠ 100%'}
+                  </span>
+                )
               ) : (
                 `Step ${step} of 6`
               )}
@@ -1321,14 +1364,14 @@ export default function FounderAgreementWizardModal({
               type="button"
               className={[
                 'nda-modal__btn',
-                step === 7 ? 'nda-modal__btn--generate'
+                isPreview ? 'nda-modal__btn--generate'
                   : step === 5 && data.publiclyFunded === 'Yes' && data.publicFundingReviewStatus !== 'approved' ? 'fa-btn--counsel'
                   : 'nda-modal__btn--primary',
               ].join(' ')}
               onClick={next}
-              disabled={(step === 7 && !isComplete) || (step === 5 && data.publiclyFunded === 'Yes' && (isRoutingToCounsel || data.publicFundingReviewStatus === 'pending' || data.publicFundingReviewStatus === 'rejected'))}
+              disabled={(isPreview && !isComplete) || (step === 5 && data.publiclyFunded === 'Yes' && (isRoutingToCounsel || data.publicFundingReviewStatus === 'pending' || data.publicFundingReviewStatus === 'rejected'))}
             >
-              {step === 7 ? (
+              {isPreview ? (
                 <><Check size={15} /> Generate Agreement</>
               ) : step === 5 && data.publiclyFunded === 'Yes' && data.publicFundingReviewStatus !== 'approved' ? (
                  <>{isRoutingToCounsel ? <Loader2 size={15} className="nda-modal__generating-spinner" /> : '⛔'} {data.publicFundingReviewStatus === 'pending' ? 'Awaiting Counsel Approval' : data.publicFundingReviewStatus === 'rejected' ? 'Counsel Rejected — Generation Blocked' : 'Route to Counsel'}</>

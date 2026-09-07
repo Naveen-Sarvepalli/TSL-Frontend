@@ -137,6 +137,7 @@ function TextInput({
   onBlur,
   placeholder,
   type = 'text',
+  min,
   error,
 }: {
   value: string
@@ -144,6 +145,7 @@ function TextInput({
   onBlur?: (value: string) => void
   placeholder?: string
   type?: string
+  min?: string
   error?: boolean
 }) {
   return (
@@ -152,6 +154,7 @@ function TextInput({
       className={`nda-modal__input${error ? ' nda-modal__input--error' : ''}`}
       value={value}
       placeholder={placeholder}
+      min={min}
       onChange={(event) => onChange(event.target.value)}
       onBlur={onBlur ? (event) => onBlur(event.target.value) : undefined}
     />
@@ -405,13 +408,22 @@ function validateScreen(step: Step, data: PrivacyPolicyWizardData): PrivacyError
       errors.thirdParties = 'Add at least one third party, or state none.'
     }
     data.thirdParties.forEach((row, index) => {
-      if (!hasText(row.name) && !hasText(row.purpose) && !hasText(row.country)) return
+      const empty = !hasText(row.name) && !hasText(row.purpose) && !hasText(row.country)
+      if (empty && data.thirdParties.length > 1) {
+        errors[`thirdParty.${index}.empty`] = 'Fill in this entry or remove it.'
+        return
+      }
+      if (empty) return
       if (!hasText(row.name)) errors[`thirdParty.${index}.name`] = 'Enter a name or category.'
       if (!hasText(row.purpose)) errors[`thirdParty.${index}.purpose`] = 'Enter a purpose.'
       if (!hasText(row.country)) errors[`thirdParty.${index}.country`] = 'Enter a country.'
     })
     if (data.crossBorder) {
       if (data.crossBorderCountries.filter(hasText).length === 0) errors.crossBorderCountries = 'List the countries data is sent to.'
+      else data.crossBorderCountries.forEach((val, index) => {
+        if (!hasText(val) && data.crossBorderCountries.length > 1)
+          errors[`crossBorderCountry.${index}.empty`] = 'Fill in this country or remove it.'
+      })
       if (!hasText(data.transferBasis)) errors.transferBasis = 'Select a transfer basis.'
     }
   }
@@ -421,7 +433,12 @@ function validateScreen(step: Step, data: PrivacyPolicyWizardData): PrivacyError
       errors.cookies = 'Add at least one cookie or cookie category.'
     }
     data.cookies.forEach((row, index) => {
-      if (!hasText(row.name) && !hasText(row.purpose) && !hasText(row.duration)) return
+      const empty = !hasText(row.name) && !hasText(row.purpose) && !hasText(row.duration)
+      if (empty && data.cookies.length > 1) {
+        errors[`cookie.${index}.empty`] = 'Fill in this entry or remove it.'
+        return
+      }
+      if (empty) return
       if (!hasText(row.name)) errors[`cookie.${index}.name`] = 'Enter a name or category.'
       if (!hasText(row.purpose)) errors[`cookie.${index}.purpose`] = 'Enter a purpose.'
       if (!hasText(row.duration)) errors[`cookie.${index}.duration`] = 'Enter a duration.'
@@ -813,18 +830,34 @@ export default function PrivacyPolicyWizardModal({
                     <p>Third parties, cross-border transfers, and direct marketing.</p>
                     <FormGroup label="Third parties" required error={errors.thirdParties}>
                       <div className="nda-modal__repeat-list">
-                        {data.thirdParties.map((row, index) => (
-                          <div key={`third-party-${index}`} className="nda-modal__repeat-card">
-                            <div className="nda-modal__repeat-grid nda-modal__repeat-grid--three">
-                              <TextInput value={row.name} onChange={(value) => updateThirdParty(index, { name: value })} placeholder="e.g. Payment processor" error={Boolean(errors[`thirdParty.${index}.name`])} />
-                              <TextInput value={row.purpose} onChange={(value) => updateThirdParty(index, { purpose: value })} placeholder="e.g. Processing payments" error={Boolean(errors[`thirdParty.${index}.purpose`])} />
-                              <TextInput value={row.country} onChange={(value) => updateThirdParty(index, { country: value })} placeholder="e.g. South Africa" error={Boolean(errors[`thirdParty.${index}.country`])} />
+                        {data.thirdParties.map((row, index) => {
+                          const tpEmpty = !hasText(row.name) && !hasText(row.purpose) && !hasText(row.country)
+                          const isExtraTp = tpEmpty && data.thirdParties.length > 1
+                          return (
+                            <div key={`third-party-${index}`} className="nda-modal__repeat-card">
+                              <div className="nda-modal__repeat-grid nda-modal__repeat-grid--three">
+                                <div>
+                                  <TextInput value={row.name} onChange={(value) => updateThirdParty(index, { name: value })} placeholder="e.g. Payment processor" error={Boolean(errors[`thirdParty.${index}.name`])} />
+                                  {errors[`thirdParty.${index}.name`] && <p className="nda-modal__field-error">{errors[`thirdParty.${index}.name`]}</p>}
+                                </div>
+                                <div>
+                                  <TextInput value={row.purpose} onChange={(value) => updateThirdParty(index, { purpose: value })} placeholder="e.g. Processing payments" error={Boolean(errors[`thirdParty.${index}.purpose`])} />
+                                  {errors[`thirdParty.${index}.purpose`] && <p className="nda-modal__field-error">{errors[`thirdParty.${index}.purpose`]}</p>}
+                                </div>
+                                <div>
+                                  <TextInput value={row.country} onChange={(value) => updateThirdParty(index, { country: value })} placeholder="e.g. South Africa" error={Boolean(errors[`thirdParty.${index}.country`])} />
+                                  {errors[`thirdParty.${index}.country`] && <p className="nda-modal__field-error">{errors[`thirdParty.${index}.country`]}</p>}
+                                </div>
+                              </div>
+                              {isExtraTp && (
+                                <p className="nda-modal__field-error">Fill in this entry or remove it using the ✕ button.</p>
+                              )}
+                              <button type="button" className="nda-modal__row-remove nda-modal__row-remove--card" onClick={() => set('thirdParties', data.thirdParties.length > 1 ? data.thirdParties.filter((_, currentIndex) => currentIndex !== index) : [createEmptyThirdParty()])} aria-label="Remove third party">
+                                <X size={16} />
+                              </button>
                             </div>
-                            <button type="button" className="nda-modal__row-remove nda-modal__row-remove--card" onClick={() => set('thirdParties', data.thirdParties.length > 1 ? data.thirdParties.filter((_, currentIndex) => currentIndex !== index) : [createEmptyThirdParty()])} aria-label="Remove third party">
-                              <X size={16} />
-                            </button>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                       <button type="button" className="nda-modal__add-row" onClick={() => set('thirdParties', [...data.thirdParties, createEmptyThirdParty()])}>
                         + Add another third party
@@ -842,18 +875,29 @@ export default function PrivacyPolicyWizardModal({
                       <>
                         <FormGroup label="Countries" required error={errors.crossBorderCountries}>
                           <div className="nda-modal__repeat-list">
-                            {data.crossBorderCountries.length === 0 ? [''].map((country, index) => (
-                              <div key={`country-${index}`} className="nda-modal__repeat-row nda-modal__repeat-row--single">
-                                <TextInput value={country} onChange={(value) => updateStringList('crossBorderCountries', index, value)} placeholder="e.g. United Kingdom" />
-                              </div>
-                            )) : data.crossBorderCountries.map((country, index) => (
-                              <div key={`country-${index}`} className="nda-modal__repeat-row nda-modal__repeat-row--single">
-                                <TextInput value={country} onChange={(value) => updateStringList('crossBorderCountries', index, value)} placeholder="e.g. United Kingdom" />
-                                <button type="button" className="nda-modal__row-remove" onClick={() => removeStringListItem('crossBorderCountries', index)} aria-label="Remove country">
-                                  <X size={16} />
-                                </button>
-                              </div>
-                            ))}
+                            {data.crossBorderCountries.map((country, index) => {
+                              const isExtraCountry = !hasText(country) && data.crossBorderCountries.length > 1
+                              return (
+                                <div key={`country-${index}`} className="nda-modal__repeat-row nda-modal__repeat-row--single">
+                                  <div style={{ flex: 1 }}>
+                                    <TextInput
+                                      value={country}
+                                      onChange={(value) => updateStringList('crossBorderCountries', index, value)}
+                                      placeholder="e.g. United Kingdom"
+                                      error={Boolean(errors[`crossBorderCountry.${index}.empty`])}
+                                    />
+                                    {isExtraCountry && (
+                                      <p className="nda-modal__field-error">Fill in this country or remove it using the ✕ button.</p>
+                                    )}
+                                  </div>
+                                  {data.crossBorderCountries.length > 1 && (
+                                    <button type="button" className="nda-modal__row-remove" onClick={() => removeStringListItem('crossBorderCountries', index)} aria-label="Remove country">
+                                      <X size={16} />
+                                    </button>
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
                           <button type="button" className="nda-modal__add-row" onClick={() => addStringListItem('crossBorderCountries')}>
                             + Add another country
@@ -873,22 +917,38 @@ export default function PrivacyPolicyWizardModal({
                     <p>Cookies used across your sites and applications, and how consent is obtained.</p>
                     <FormGroup label="Cookies used" required error={errors.cookies}>
                       <div className="nda-modal__repeat-list">
-                        {data.cookies.map((row, index) => (
-                          <div key={`cookie-${index}`} className="nda-modal__repeat-card">
-                            <div className="nda-modal__repeat-grid nda-modal__repeat-grid--four">
-                              <TextInput value={row.name} onChange={(value) => updateCookie(index, { name: value })} placeholder="e.g. _ga" error={Boolean(errors[`cookie.${index}.name`])} />
-                              <TextInput value={row.purpose} onChange={(value) => updateCookie(index, { purpose: value })} placeholder="e.g. Analytics" error={Boolean(errors[`cookie.${index}.purpose`])} />
-                              <TextInput value={row.duration} onChange={(value) => updateCookie(index, { duration: value })} placeholder="e.g. 13 months" error={Boolean(errors[`cookie.${index}.duration`])} />
-                              <select className="nda-modal__select" value={row.necessary} onChange={(event) => updateCookie(index, { necessary: event.target.value as PrivacyCookieRow['necessary'] })}>
-                                <option value="No">No</option>
-                                <option value="Yes">Yes</option>
-                              </select>
+                        {data.cookies.map((row, index) => {
+                          const cookieEmpty = !hasText(row.name) && !hasText(row.purpose) && !hasText(row.duration)
+                          const isExtraCookie = cookieEmpty && data.cookies.length > 1
+                          return (
+                            <div key={`cookie-${index}`} className="nda-modal__repeat-card">
+                              <div className="nda-modal__repeat-grid nda-modal__repeat-grid--four">
+                                <div>
+                                  <TextInput value={row.name} onChange={(value) => updateCookie(index, { name: value })} placeholder="e.g. _ga" error={Boolean(errors[`cookie.${index}.name`])} />
+                                  {errors[`cookie.${index}.name`] && <p className="nda-modal__field-error">{errors[`cookie.${index}.name`]}</p>}
+                                </div>
+                                <div>
+                                  <TextInput value={row.purpose} onChange={(value) => updateCookie(index, { purpose: value })} placeholder="e.g. Analytics" error={Boolean(errors[`cookie.${index}.purpose`])} />
+                                  {errors[`cookie.${index}.purpose`] && <p className="nda-modal__field-error">{errors[`cookie.${index}.purpose`]}</p>}
+                                </div>
+                                <div>
+                                  <TextInput value={row.duration} onChange={(value) => updateCookie(index, { duration: value })} placeholder="e.g. 13 months" error={Boolean(errors[`cookie.${index}.duration`])} />
+                                  {errors[`cookie.${index}.duration`] && <p className="nda-modal__field-error">{errors[`cookie.${index}.duration`]}</p>}
+                                </div>
+                                <select className="nda-modal__select" value={row.necessary} onChange={(event) => updateCookie(index, { necessary: event.target.value as PrivacyCookieRow['necessary'] })}>
+                                  <option value="No">No</option>
+                                  <option value="Yes">Yes</option>
+                                </select>
+                              </div>
+                              {isExtraCookie && (
+                                <p className="nda-modal__field-error">Fill in this entry or remove it using the ✕ button.</p>
+                              )}
+                              <button type="button" className="nda-modal__row-remove nda-modal__row-remove--card" onClick={() => set('cookies', data.cookies.length > 1 ? data.cookies.filter((_, currentIndex) => currentIndex !== index) : [createEmptyCookie()])} aria-label="Remove cookie">
+                                <X size={16} />
+                              </button>
                             </div>
-                            <button type="button" className="nda-modal__row-remove nda-modal__row-remove--card" onClick={() => set('cookies', data.cookies.length > 1 ? data.cookies.filter((_, currentIndex) => currentIndex !== index) : [createEmptyCookie()])} aria-label="Remove cookie">
-                              <X size={16} />
-                            </button>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                       <button type="button" className="nda-modal__add-row" onClick={() => set('cookies', [...data.cookies, createEmptyCookie()])}>
                         + Add another cookie
@@ -926,7 +986,7 @@ export default function PrivacyPolicyWizardModal({
                     </FormGroup>
                     <div className="nda-modal__two-col">
                       <FormGroup label="Effective date" required hint="Version tracked for the verification page." error={errors.effectiveDate}>
-                        <TextInput value={data.effectiveDate} onChange={(value) => set('effectiveDate', value)} type="date" error={Boolean(errors.effectiveDate)} />
+                        <TextInput value={data.effectiveDate} onChange={(value) => set('effectiveDate', value)} type="date" min={new Date().toISOString().split('T')[0]} error={Boolean(errors.effectiveDate)} />
                       </FormGroup>
                       <FormGroup label="Automated decision-making" optional hint='Not one of the 25 Blueprint fields — included here only to demonstrate the "automated decision making with legal effect" Counsel prompt described in the spec.'>
                         <ToggleGroup value={data.automatedDecisions} onChange={(value) => set('automatedDecisions', value)} />

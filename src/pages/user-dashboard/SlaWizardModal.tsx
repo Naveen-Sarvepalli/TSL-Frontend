@@ -2,7 +2,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, Check, Eye, Loader2, Pencil, Plus, 
 import { useEffect, useRef, useState } from 'react'
 import {
   calcSlaProgress,
-  SLA_TOTAL_CHECKS,
+  getSlaTotalChecks,
   type CreditTier,
   type EscalationContact,
   type PartyBlock,
@@ -29,8 +29,8 @@ const MODULE_ORDER = [
 type ModuleName = typeof MODULE_ORDER[number]
 
 /* ─── Shared UI helpers ─────────────────────────────────────── */
-function FormGroup({ label, required, hint, error, children }: {
-  label: string; required?: boolean; hint?: string; error?: string; children: React.ReactNode
+function FormGroup({ label, required, hint, hintAfter, error, children }: {
+  label: string; required?: boolean; hint?: string; hintAfter?: string; error?: string; children: React.ReactNode
 }) {
   return (
     <div className="nda-modal__form-group">
@@ -39,18 +39,19 @@ function FormGroup({ label, required, hint, error, children }: {
       </label>
       {hint && !error && <p className="nda-modal__field-hint">{hint}</p>}
       {children}
+      {hintAfter && !error && <p className="nda-modal__field-hint">{hintAfter}</p>}
       {error && <p className="nda-modal__field-error">{error}</p>}
     </div>
   )
 }
 
-function TextInput({ id, value, onChange, onBlur, placeholder, type = 'text', min, max, step, error }: {
+function TextInput({ id, value, onChange, onBlur, placeholder, type = 'text', min, max, step, maxLength, error }: {
   id?: string; value: string; onChange: (v: string) => void; onBlur?: (v: string) => void
-  placeholder?: string; type?: string; min?: string; max?: string; step?: string; error?: boolean
+  placeholder?: string; type?: string; min?: string; max?: string; step?: string; maxLength?: number; error?: boolean
 }) {
   return (
     <input id={id} type={type} className={`nda-modal__input${error ? ' nda-modal__input--error' : ''}`} value={value}
-      placeholder={placeholder} min={min} max={max} step={step}
+      placeholder={placeholder} min={min} max={max} step={step} maxLength={maxLength}
       onChange={(e) => onChange(e.target.value)}
       onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined} />
   )
@@ -292,7 +293,13 @@ function validateScreen(key: ScreenKey, data: SlaWizardData): SlaErrors {
     else if (!/^[A-Za-z\s'.,&()-]+$/.test(custName)) e['customer.legalName'] = 'Customer name must contain alphabetic characters only.'
     if (!data.serviceDescription.trim()) e['serviceDescription'] = 'This field is required.'
     if (!data.startDate.trim()) e['startDate'] = 'This field is required.'
-    if (data.termType === 'Fixed end date' && !data.endDate.trim()) e['endDate'] = 'Select an end date.'
+    if (data.termType === 'Fixed end date') {
+      if (!data.endDate.trim()) {
+        e['endDate'] = 'Select an end date.'
+      } else if (data.startDate.trim() && data.endDate <= data.startDate) {
+        e['endDate'] = 'End date must be after the start date.'
+      }
+    }
   }
   if (key === 'modules') {
     if (data.modules.length === 0) e['modules'] = 'Select at least one commitment.'
@@ -307,13 +314,28 @@ function validateScreen(key: ScreenKey, data: SlaWizardData): SlaErrors {
     if (data.supportHours === 'Custom' && !data.supportHoursCustom.trim())
       e['supportHoursCustom'] = 'Describe the custom hours.'
     if (data.supportChannels.length === 0) e['supportChannels'] = 'Select at least one channel.'
-    if (data.supportChannels.includes('Other') && !data.supportChannelOther.trim())
-      e['supportChannelOther'] = 'This field is required.'
+    if (data.supportChannels.includes('Other')) {
+      if (!data.supportChannelOther.trim()) {
+        e['supportChannelOther'] = 'This field is required.'
+      } else if (!/^[A-Za-z0-9\s\-\/]+$/.test(data.supportChannelOther.trim())) {
+        e['supportChannelOther'] = 'Other channel may only contain letters, numbers, spaces, hyphens, and slashes.'
+      } else if (data.supportChannelOther.trim().length > 100) {
+        e['supportChannelOther'] = 'Other channel must be 100 characters or fewer.'
+      }
+    }
   }
   if (key === 'incident') {
     if (!data.useSeverityModel && data.incidentNarrative.trim().length < 200)
       e['incidentNarrative'] = `At least 200 characters required (${data.incidentNarrative.trim().length} entered).`
-    if (data.escalationContacts.length === 0) e['escalationContacts'] = 'Add at least one escalation contact.'
+    if (data.escalationContacts.length === 0) {
+      e['escalationContacts'] = 'Add at least one escalation contact.'
+    } else {
+      data.escalationContacts.forEach((c, i) => {
+        if (!c.name.trim()) e[`escalation_${i}_name`] = 'Name is required.'
+        if (!c.role.trim()) e[`escalation_${i}_role`] = 'Role is required.'
+        if (!c.email.trim()) e[`escalation_${i}_email`] = 'Email is required.'
+      })
+    }
   }
   if (key === 'maintenance') {
     if (!data.maintenanceWindow.trim()) e['maintenanceWindow'] = 'This field is required.'
@@ -327,6 +349,7 @@ function validateScreen(key: ScreenKey, data: SlaWizardData): SlaErrors {
   if (key === 'security') {
     if (data.securityCommitments.length === 0) e['securityCommitments'] = 'Select at least one commitment.'
     if (!data.breachNoticeHours.trim()) e['breachNoticeHours'] = 'This field is required.'
+    else if (isNaN(Number(data.breachNoticeHours)) || Number(data.breachNoticeHours) < 1) e['breachNoticeHours'] = 'Must be at least 1 hour.'
   }
   if (key === 'credits') {
     const hasCompleteTier = data.creditTiers.some((tier) => tier.uptimeBelow.trim() !== '' && tier.creditPct.trim() !== '')
@@ -338,8 +361,10 @@ function validateScreen(key: ScreenKey, data: SlaWizardData): SlaErrors {
   }
   if (key === 'legal') {
     if (!data.signatureMethod) e['signatureMethod'] = 'Select a signature method.'
-    if (data.signatories.some((s) => !s.name.trim())) e['signatories'] = 'Every signatory must have a name.'
-    if (data.signatories.some((s) => !s.title.trim())) e['signatories'] = 'Every signatory must have a title.'
+    data.signatories.forEach((s, i) => {
+      if (!s.name.trim()) e[`signatory_${i}_name`] = 'Name is required.'
+      if (!s.title.trim()) e[`signatory_${i}_title`] = 'Title is required.'
+    })
   }
   return e
 }
@@ -401,7 +426,7 @@ export default function SlaWizardModal({
 
   const progress = calcSlaProgress(data)
   const isComplete = progress === 100
-  const totalChecks = SLA_TOTAL_CHECKS
+  const totalChecks = getSlaTotalChecks(data)
   const missingCount = totalChecks - Math.round((progress / 100) * totalChecks)
 
   const onStepChangeRef = useRef(onStepChange)
@@ -771,7 +796,8 @@ export default function SlaWizardModal({
                     <FormGroup label="Other channel" required error={errors['supportChannelOther']}>
                       <TextInput value={data.supportChannelOther}
                         onChange={(v) => set('supportChannelOther', v)}
-                        placeholder="Name the other channel" />
+                        placeholder="Name the other channel"
+                        maxLength={100} />
                     </FormGroup>
                   )}
                 </div>
@@ -895,12 +921,12 @@ export default function SlaWizardModal({
                       placeholder="e.g. Sundays 02:00 to 06:00 SAST" />
                   </FormGroup>
 
-                  <div className="nda-modal__two-col">
-                    <FormGroup label="Notice before maintenance" required hint="Hours. Default 48." error={errors['maintenanceNoticeHours']}>
+                  <div className="nda-modal__two-col" style={{ alignItems: 'start' }}>
+                    <FormGroup label="Notice before maintenance" required hintAfter="Hours. Default 48." error={errors['maintenanceNoticeHours']}>
                       <TextInput value={data.maintenanceNoticeHours} onChange={(v) => set('maintenanceNoticeHours', v)}
                         placeholder="48" type="number" min="0" />
                     </FormGroup>
-                    <FormGroup label="Emergency maintenance permitted" required hint="Default Yes.">
+                    <FormGroup label="Emergency maintenance permitted" required hintAfter="Default Yes.">
                       <ToggleGroup options={['Yes', 'No']}
                         value={data.emergencyMaintenance ? 'Yes' : 'No'}
                         onChange={(v) => set('emergencyMaintenance', v === 'Yes')} />
@@ -917,24 +943,24 @@ export default function SlaWizardModal({
                   <h3 className="nda-modal__party-title">Backups and restore</h3>
                   <p className="nda-modal__field-hint" style={{ marginBottom: 16 }}>How often data is backed up, and how quickly service and data can be recovered.</p>
 
-                  <div className="nda-modal__two-col" style={{ alignItems: 'end' }}>
+                  <div className="nda-modal__two-col" style={{ alignItems: 'start' }}>
                     <FormGroup label="Backup frequency" required>
                       <SelectInput value={data.backupFrequency}
                         onChange={(v) => set('backupFrequency', v as SlaWizardData['backupFrequency'])}
                         options={['Daily', 'Weekly', 'Continuous', 'Custom']} />
                     </FormGroup>
-                    <FormGroup label="Backup retention (days)" required hint="Days. Default 30." error={errors['backupRetentionDays']}>
+                    <FormGroup label="Backup retention (days)" required hintAfter="Days. Default 30." error={errors['backupRetentionDays']}>
                       <TextInput value={data.backupRetentionDays} onChange={(v) => set('backupRetentionDays', v)}
                         placeholder="30" type="number" min="0" />
                     </FormGroup>
                   </div>
 
-                  <div className="nda-modal__two-col">
-                    <FormGroup label="Recovery time objective (RTO)" required hint="Hours. Target time to restore service." error={errors['rtoHours']}>
+                  <div className="nda-modal__two-col" style={{ alignItems: 'start' }}>
+                    <FormGroup label="Recovery time objective (RTO)" required hintAfter="Hours. Target time to restore service." error={errors['rtoHours']}>
                       <TextInput value={data.rtoHours} onChange={(v) => set('rtoHours', v)}
                         placeholder="Hours" type="number" min="0" />
                     </FormGroup>
-                    <FormGroup label="Recovery point objective (RPO)" required hint="Hours. Maximum acceptable data loss." error={errors['rpoHours']}>
+                    <FormGroup label="Recovery point objective (RPO)" required hintAfter="Hours. Maximum acceptable data loss." error={errors['rpoHours']}>
                       <TextInput value={data.rpoHours} onChange={(v) => set('rpoHours', v)}
                         placeholder="Hours" type="number" min="0" />
                     </FormGroup>
@@ -960,7 +986,7 @@ export default function SlaWizardModal({
 
                   <FormGroup label="Breach notification period" required hint="Hours. Default 48." error={errors['breachNoticeHours']}>
                     <TextInput value={data.breachNoticeHours} onChange={(v) => set('breachNoticeHours', v)}
-                      placeholder="48" type="number" min="0" />
+                      placeholder="48" type="number" min="1" />
                   </FormGroup>
                 </div>
               </div>
@@ -973,7 +999,7 @@ export default function SlaWizardModal({
                   <h3 className="nda-modal__party-title">Service credits</h3>
                   <p className="nda-modal__field-hint" style={{ marginBottom: 16 }}>The remedy for missing the commitments above.</p>
 
-                  {(noCreditTier || invalidCreditTier) && (
+                  {errors['creditTiers'] && (noCreditTier || invalidCreditTier) && (
                     <GateBanner type="block">
                       <strong>{noCreditTier ? 'No complete credit tier captured' : 'Complete every credit tier'}</strong>
                       {noCreditTier
@@ -1076,18 +1102,28 @@ export default function SlaWizardModal({
                 <div className="nda-modal__party-block">
                   <h3 className="nda-modal__party-title" style={{ margin: '0 0 2px' }}>Signatories <span className="nda-modal__required">*</span></h3>
                   <p className="nda-modal__field-hint" style={{ margin: '0 0 2px' }}>Name and title for each party.</p>
-                  {errors['signatories'] && <p className="nda-modal__field-error" style={{ margin: '0 0 4px' }}>{errors['signatories']}</p>}
                   {/* header */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 34px', gap: 8, padding: '0 4px 6px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.3px', color: '#6b7280' }}>
                     <span>Name</span><span>Title</span><span />
                   </div>
                   {data.signatories.map((sig, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 34px', gap: 8, background: '#fff', border: '1px solid #e2e4e9', borderRadius: 10, padding: 12, marginBottom: 8, alignItems: 'center' }}>
-                      <input className="nda-modal__input" placeholder="Name" value={sig.name} onChange={(e) => updateSignatory(i, 'name', e.target.value)} />
-                      <input className="nda-modal__input" placeholder="Title" value={sig.title} onChange={(e) => updateSignatory(i, 'title', e.target.value)} />
-                      <button type="button" onClick={() => removeSignatory(i)}
-                        style={{ background: data.signatories.length <= 2 ? '#f4f5f7' : '#fdecea', color: data.signatories.length <= 2 ? '#aaa' : '#c0392b', border: 'none', width: 30, height: 30, borderRadius: 8, cursor: data.signatories.length <= 2 ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700 }}
-                        aria-label="Remove" disabled={data.signatories.length <= 2}>×</button>
+                    <div key={i} style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 34px', gap: 8, background: '#fff', border: '1px solid #e2e4e9', borderRadius: 10, padding: 12, alignItems: 'center' }}>
+                        <input className={`nda-modal__input${errors[`signatory_${i}_name`] ? ' nda-modal__input--error' : ''}`} placeholder="Name" value={sig.name}
+                          onChange={(e) => { updateSignatory(i, 'name', e.target.value); if (errors[`signatory_${i}_name`]) setErrors((p) => { const n = { ...p }; delete n[`signatory_${i}_name`]; return n }) }} />
+                        <input className={`nda-modal__input${errors[`signatory_${i}_title`] ? ' nda-modal__input--error' : ''}`} placeholder="Title" value={sig.title}
+                          onChange={(e) => { updateSignatory(i, 'title', e.target.value); if (errors[`signatory_${i}_title`]) setErrors((p) => { const n = { ...p }; delete n[`signatory_${i}_title`]; return n }) }} />
+                        <button type="button" onClick={() => removeSignatory(i)}
+                          style={{ background: data.signatories.length <= 2 ? '#f4f5f7' : '#fdecea', color: data.signatories.length <= 2 ? '#aaa' : '#c0392b', border: 'none', width: 30, height: 30, borderRadius: 8, cursor: data.signatories.length <= 2 ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700 }}
+                          aria-label="Remove" disabled={data.signatories.length <= 2}>×</button>
+                      </div>
+                      {(errors[`signatory_${i}_name`] || errors[`signatory_${i}_title`]) && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 34px', gap: 8, padding: '2px 4px 0' }}>
+                          <p className="nda-modal__field-error" style={{ margin: 0 }}>{errors[`signatory_${i}_name`] || ''}</p>
+                          <p className="nda-modal__field-error" style={{ margin: 0 }}>{errors[`signatory_${i}_title`] || ''}</p>
+                          <span />
+                        </div>
+                      )}
                     </div>
                   ))}
                   <button type="button" className="nda-modal__btn nda-modal__btn--secondary" onClick={addSignatory} style={{ marginTop: 4 }}>
@@ -1228,7 +1264,7 @@ export default function SlaWizardModal({
               </button>
             ) : (
               <button type="button" className="nda-modal__btn nda-modal__btn--primary"
-                onClick={next} disabled={currentKey === 'credits' && (noCreditTier || invalidCreditTier)}>
+                onClick={next}>
                 Next Step <ArrowRight size={15} />
               </button>
             )}

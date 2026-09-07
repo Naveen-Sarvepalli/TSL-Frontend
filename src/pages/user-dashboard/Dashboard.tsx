@@ -39,7 +39,7 @@ import { useEmploymentWizard } from '../../hooks/useEmploymentWizard'
 import { usePrivacyPolicyWizard } from '../../hooks/usePrivacyPolicyWizard'
 import { useFounderAgreementWizard } from '../../hooks/useFounderAgreementWizard'
 import { useServiceAgreementWizard } from '../../hooks/useServiceAgreementWizard'
-import { useSlaWizard } from '../../hooks/useSlaWizard'
+import { useSlaWizard, calcSlaProgress } from '../../hooks/useSlaWizard'
 import { useBillingSubscription } from '../../hooks/useBillingSubscription'
 import NdaWizardModal from './NdaWizardModal'
 import type { NdaWizardData } from './NdaWizardModal'
@@ -88,8 +88,9 @@ type DashboardLocationState = {
   addedCount?: number
   blueprintTopUpSuccess?: boolean
   unitsAdded?: number
+  returnTab?: DashboardTab
   addedWizards?: Array<{ title: string; quantity: number }>
-  topUpSuccess?: boolean
+  topUpSuccess?: number
   creditsAdded?: number
   counselBlueprintReturn?: CounselBlueprintReturn
 }
@@ -416,9 +417,9 @@ const newWizards = [
 
 
 const notices = [
-  { label: 'Terms of Service',         icon: FileText, urlKey: 'termsOfServiceUrl'  as keyof LegalLinks },
-  { label: 'Privacy & POPIA Compliance', icon: Shield, urlKey: 'privacyPolicyUrl'   as keyof LegalLinks },
-  { label: 'Legal Advice Disclaimer',  icon: Info,     urlKey: 'legalDisclaimerUrl' as keyof LegalLinks },
+  { label: 'Terms of Service',          icon: FileText, urlKey: 'termsOfServiceUrl'  as keyof LegalLinks, fallback: '/legal/terms-of-service.html'  },
+  { label: 'Privacy & POPIA Compliance', icon: Shield,  urlKey: 'privacyPolicyUrl'   as keyof LegalLinks, fallback: '/legal/privacy-popia.html'      },
+  { label: 'Legal Advice Disclaimer',   icon: Info,     urlKey: 'legalDisclaimerUrl' as keyof LegalLinks, fallback: '/legal/legal-disclaimer.html'   },
 ]
 
 function relativeUpdated(value?: string) {
@@ -1794,7 +1795,7 @@ export default function Dashboard() {
     !isInitialSubscriptionDashboard &&
     dashboardViewMode === 'returning',
   )
-  const defaultTab: DashboardTab = 'new'
+  const defaultTab: DashboardTab = (location.state as DashboardLocationState | null)?.returnTab ?? 'new'
   const [activeTab, setActiveTab] = useState<DashboardTab>(defaultTab)
   const [isNdaModalOpen, setIsNdaModalOpen] = useState(false)
   const [isEmpModalOpen, setIsEmpModalOpen] = useState(false)
@@ -2619,10 +2620,10 @@ export default function Dashboard() {
                 </div>
                 <p>Review important policies</p>
                 <div>
-                  {notices.map(({ label, icon: Icon, urlKey }) => {
-                    const href = legalLinks?.[urlKey] ?? null
-                    const isLoading = legalLinksLoading
-                    const isDisabled = !isLoading && !href
+                  {notices.map(({ label, icon: Icon, fallback }) => {
+                    const href = fallback
+                    const isLoading = false
+                    const isDisabled = !href
                     if (isLoading) {
                       return (
                         <button
@@ -2794,8 +2795,8 @@ export default function Dashboard() {
             onClose={(step, data) => {
               if (justCompletedRef.current) { justCompletedRef.current = false; return }
               const cid = continuingInstanceRef.current
-              if (cid) { updateInProgressInstance(cid, step ?? 1, Math.round((((step ?? 1) - 1) / 9) * 100), data); continuingInstanceRef.current = null }
-              else { decrementQueue('Service Level Agreement (SLA)'); pushInProgressInstance('Service Level Agreement (SLA)', step ?? 1, Math.round((((step ?? 1) - 1) / 9) * 100), data) }
+              if (cid) { updateInProgressInstance(cid, step ?? 1, data ? calcSlaProgress(data as SlaWizardData) : 0, data); continuingInstanceRef.current = null }
+              else { decrementQueue('Service Level Agreement (SLA)'); pushInProgressInstance('Service Level Agreement (SLA)', step ?? 1, data ? calcSlaProgress(data as SlaWizardData) : 0, data) }
               setIsSLAModalOpen(false); setActiveTab('inProgress'); openReturningDashboard()
             }}
             initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
@@ -3301,6 +3302,8 @@ export default function Dashboard() {
           blueprintName={insufficientUnits.blueprintName}
           pricePerUnit={insufficientUnits.pricePerUnit}
           iconName={insufficientUnits.iconName}
+          returnTo="/dashboard"
+          returnTab="completed"
           onClose={() => setInsufficientUnits(null)}
           onUpgrade={() => { setInsufficientUnits(null); void openBillingUpgradePlans() }}
         />
@@ -3461,8 +3464,8 @@ export default function Dashboard() {
           onClose={(step, data) => {
             if (justCompletedRef.current) { justCompletedRef.current = false; return }
             const cid = continuingInstanceRef.current
-            if (cid) { updateInProgressInstance(cid, step ?? 1, Math.round((((step ?? 1) - 1) / 9) * 100), data); continuingInstanceRef.current = null }
-            else { decrementQueue('Service Level Agreement (SLA)'); pushInProgressInstance('Service Level Agreement (SLA)', step ?? 1, Math.round((((step ?? 1) - 1) / 9) * 100), data) }
+            if (cid) { updateInProgressInstance(cid, step ?? 1, data ? calcSlaProgress(data as SlaWizardData) : 0, data); continuingInstanceRef.current = null }
+            else { decrementQueue('Service Level Agreement (SLA)'); pushInProgressInstance('Service Level Agreement (SLA)', step ?? 1, data ? calcSlaProgress(data as SlaWizardData) : 0, data) }
             setIsSLAModalOpen(false)
           }}
           initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
