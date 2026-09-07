@@ -156,11 +156,20 @@ function Banner({ type, title, message }: { type: 'warn' | 'block'; title: strin
 }
 
 /* ─── Snapshot field (pre-filled from Company Snapshot) ─── */
-function SnapshotField({ value, confirmed, onConfirm }: { value: string; confirmed: boolean; onConfirm: () => void }) {
+function SnapshotField({
+  value,
+  confirmed,
+  onConfirm,
+}: {
+  value: string
+  confirmed: boolean
+  onConfirm: () => void
+}) {
   const [snapshotError, setSnapshotError] = useState<string | null>(null)
+  const isMissing = !value.trim()
 
   function handleConfirm() {
-    if (!value.trim()) {
+    if (isMissing) {
       setSnapshotError('Please complete your Company Snapshot before confirming.')
       return
     }
@@ -171,7 +180,11 @@ function SnapshotField({ value, confirmed, onConfirm }: { value: string; confirm
   return (
     <>
       <div className={`nda-modal__snapshot-confirm${confirmed ? ' nda-modal__snapshot-confirm--confirmed' : ''}`}>
-        <span>{value || 'Complete your Company Snapshot'}</span>
+        {isMissing ? (
+          <span className="fa-snapshot-missing-text">Complete your Company Snapshot</span>
+        ) : (
+          <span>{value}</span>
+        )}
         {confirmed ? (
           <span className="nda-modal__snapshot-btn nda-modal__snapshot-btn--confirmed" style={{ cursor: 'default', fontWeight: 400 }}>✓ Confirmed</span>
         ) : (
@@ -505,7 +518,7 @@ interface FounderAgreementWizardModalProps {
   initialStep?: number
   initialData?: FounderAgreementWizardData
   onStepChange?: (step: number, data: FounderAgreementWizardData) => void
-  onRouteToCounsel?: (fields: FounderAgreementFieldMap) => Promise<{ requestId: string; status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string | null } | null>
+  onRouteToCounsel?: (fields: FounderAgreementFieldMap, step: number, data: FounderAgreementWizardData) => Promise<{ requestId: string; status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string | null } | null>
   onRefreshPublicFundingReview?: (requestId: string) => Promise<{ status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string | null } | null>
 }
 
@@ -708,7 +721,7 @@ export default function FounderAgreementWizardModal({
   const routeToCounsel = async () => {
     if (!onRouteToCounsel || isRoutingToCounsel) return
     setIsRoutingToCounsel(true)
-    const review = await onRouteToCounsel(mapFounderAgreementFields(data, profile))
+    const review = await onRouteToCounsel(mapFounderAgreementFields(data, profile), step, data)
     if (review) {
       setData((previous) => ({
         ...previous,

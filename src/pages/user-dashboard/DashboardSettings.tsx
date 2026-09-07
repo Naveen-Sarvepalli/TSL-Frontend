@@ -81,7 +81,7 @@ function downloadInvoicePdf(inv: BillingHistoryInvoice) {
   </table>
   <table>
     <tr><td class="label">Subscription amount</td><td>${fmtZAR(inv.amount)}</td></tr>
-    <tr><td class="label">VAT (15%)</td><td>${fmtZAR(inv.tax)}</td></tr>
+    <tr><td class="label">VAT (not charged)</td><td>${fmtZAR(inv.tax)}</td></tr>
     <tr class="total"><td>Total</td><td>${fmtZAR(inv.total)}</td></tr>
   </table>
 </body>
@@ -388,8 +388,6 @@ export default function DashboardSettings() {
   // (mock server returns planId="launchpad" even for unpaid/free users)
   const effectivePlanId = hasSubscription ? (subscription?.planId ?? 'free') : 'free'
 
-  const tax         = parseFloat((planPrice * 0.15).toFixed(2))
-  const totalInv    = planPrice + tax
   const progressPct = runsTotal > 0 ? Math.min(100, Math.round((runsUsed / runsTotal) * 100)) : 0
 
   // Non-subscribers see no invoices regardless of what the server returns
@@ -756,15 +754,11 @@ export default function DashboardSettings() {
               <dl>
                 <div>
                   <dt>Subscription</dt>
-                  <dd>R{planPrice.toLocaleString('en-US')}</dd>
-                </div>
-                <div>
-                  <dt>Tax (15%)</dt>
-                  <dd>R{tax.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
+                  <dd>R{planPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
                 </div>
                 <div>
                   <dt>Total</dt>
-                  <dd>R{totalInv.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
+                  <dd>R{planPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</dd>
                 </div>
               </dl>
             </section>

@@ -17,24 +17,20 @@ interface Props {
   onClose: () => void
 }
 
-// Static per-plan meta — excluded features shown greyed-out with ✗
+// Presentation-only metadata. Commercial content comes from the plan API.
 const PLAN_META: Record<string, {
   Icon: React.ElementType
-  excluded: string[]
   popular?: boolean
 }> = {
   launchpad: {
     Icon: FileText,
-    excluded: ['No API access', 'No white-label'],
   },
   operator: {
     Icon: ShoppingCart,
-    excluded: ['No white-label'],
     popular: true,
   },
   boardroom: {
     Icon: ShoppingCart,
-    excluded: [],
   },
 }
 
@@ -86,8 +82,8 @@ export function ComparePlansModal({ plans, plansLoading, plansError, onClose }: 
           <div className="bs-compare-grid">
             {plans.map((plan) => {
               const key  = plan.planId.toLowerCase()
-              const meta = PLAN_META[key] ?? { Icon: ShoppingCart, excluded: [] }
-              const { Icon, excluded, popular } = meta
+              const meta = PLAN_META[key] ?? { Icon: ShoppingCart }
+              const { Icon, popular } = meta
 
               return (
                 <div key={plan.planId} className="bs-compare-card-wrapper">
@@ -127,12 +123,6 @@ export function ComparePlansModal({ plans, plansLoading, plansError, onClose }: 
                       {plan.features.map((f) => (
                         <li key={f} className="bs-compare-card__feature--included">
                           <CheckCircle2 size={15} />
-                          {f}
-                        </li>
-                      ))}
-                      {excluded.map((f) => (
-                        <li key={f} className="bs-compare-card__feature--excluded">
-                          <X size={14} />
                           {f}
                         </li>
                       ))}

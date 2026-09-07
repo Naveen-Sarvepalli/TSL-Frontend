@@ -1,12 +1,19 @@
-import { ArrowLeft, CheckCircle2, Mail } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, CheckCircle2, Mail, X } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { authApi } from '../../services/tslApi'
+import Home from '../Home'
 import './Auth.css'
 
 export default function ForgotPassword() {
   const navigate = useNavigate()
+  const location = useLocation()
 
+  const [closed, setClosed]         = useState(false)
+
+  // Re-open modal whenever the user navigates to this route again
+  useEffect(() => { setClosed(false) }, [location.key])
   const [email, setEmail]           = useState('')
   const [emailError, setEmailError] = useState('')
   const [apiError, setApiError]     = useState('')
@@ -16,10 +23,8 @@ export default function ForgotPassword() {
   function validateEmail(value: string) {
     const v = value.trim()
     if (!v) return 'Email address is required.'
-    // Must start with a letter or digit, allow alphanumeric + limited special chars (. _ + -) in local part
     if (!/^[a-zA-Z0-9][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(v))
       return 'Enter a valid email address (e.g. name@example.com).'
-    // Local part must not have consecutive dots
     const local = v.split('@')[0]
     if (/\.{2,}/.test(local)) return 'Enter a valid email address (e.g. name@example.com).'
     return ''
@@ -38,7 +43,6 @@ export default function ForgotPassword() {
         setApiError(response.message ?? 'Something went wrong. Please try again.')
         return
       }
-      // Show toast then navigate after a short delay so user sees the confirmation
       setShowToast(true)
       const data = response as unknown as { resetLink?: string }
       setTimeout(() => {
@@ -56,75 +60,76 @@ export default function ForgotPassword() {
   }
 
   return (
-    <main className="auth-page">
-      {showToast && (
-        <div className="auth-page__toast" role="status">
-          <CheckCircle2 size={18} />
-          Reset link sent to <strong>{email}</strong> — please check your inbox.
-        </div>
-      )}
-      <section className="auth-page__panel">
-        <div className="auth-page__brand">
-          <span><TslIcon /></span>
-          <div>
-            <h1>The Startup Legal</h1>
-            <p>Password Reset</p>
-          </div>
-        </div>
+    <>
+      <Home />
 
-        <form className="auth-page__card" onSubmit={handleSubmit} noValidate>
-          <div>
-            <h2>Forgot Password?</h2>
-            <p>Enter your email address to receive a password reset link.</p>
-          </div>
-
-          {/* Email */}
-          <label>
-            <span>Email Address</span>
-            <div className={emailError ? 'auth-page__field auth-page__field--error' : 'auth-page__field'}>
-              <Mail size={18} />
-              <input
-                type="email"
-                value={email}
-                  onChange={(e) => { setEmail(e.target.value); if (emailError) setEmailError('') }}
-                  onBlur={(e) => { const err = validateEmail(e.target.value); if (err) setEmailError(err) }}
-                  placeholder="e.g. name@company.co.za"
-                  autoComplete="email"
-                  autoFocus
-              />
+      {!closed && createPortal(
+        <div className="auth-overlay">
+          {showToast && (
+            <div className="auth-page__toast" role="status">
+              <CheckCircle2 size={18} />
+              Reset link sent to <strong>{email}</strong> — please check your inbox.
             </div>
-            {emailError && <span className="auth-page__field-error">{emailError}</span>}
-          </label>
+          )}
 
-          {apiError && <p className="auth-page__error" role="alert">{apiError}</p>}
+          <form className="auth-overlay__card" onSubmit={handleSubmit} noValidate>
+            {/* Gold header */}
+            <div className="auth-overlay__header">
+              <button
+                type="button"
+                className="auth-overlay__close"
+                aria-label="Close"
+                onClick={() => setClosed(true)}
+              >
+                <X size={18} />
+              </button>
+              <p className="auth-overlay__header-title">Forgot Password?</p>
+              <p className="auth-overlay__header-sub">Enter your email to receive a reset link.</p>
+            </div>
 
-          <button type="submit" className="auth-page__btn--primary" disabled={isSubmitting}>
-            {isSubmitting ? 'Generating link…' : 'Send Reset Link'}
-          </button>
+            {/* Body */}
+            <div className="auth-overlay__body">
+              <label>
+                <span>Email Address</span>
+                <div className={emailError ? 'auth-page__field auth-page__field--error' : 'auth-page__field'}>
+                  <Mail size={18} />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); if (emailError) setEmailError('') }}
+                    onBlur={(e) => { const err = validateEmail(e.target.value); if (err) setEmailError(err) }}
+                    placeholder="e.g. name@company.co.za"
+                    autoComplete="email"
+                    autoFocus
+                  />
+                </div>
+                {emailError && <span className="auth-page__field-error">{emailError}</span>}
+              </label>
 
-          <button
-            type="button"
-            className="auth-page__btn--ghost"
-            onClick={() => {
-              navigate('/')
-              setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('tsl-open-auth-modal', { detail: { mode: 'signin' } }))
-              }, 50)
-            }}
-          >
-            <ArrowLeft size={16} />
-            Back to Login
-          </button>
-        </form>
-      </section>
-    </main>
-  )
-}
+              {apiError && <p className="auth-page__error" role="alert">{apiError}</p>}
 
-function TslIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 3v18M5 7h14M6 7l-3 7h6L6 7Zm12 0-3 7h6l-3-7ZM9 21h6" />
-    </svg>
+              <button type="submit" className="auth-page__btn--primary" disabled={isSubmitting}>
+                {isSubmitting ? 'Generating link…' : 'Send Reset Link'}
+              </button>
+
+              <button
+                type="button"
+                className="auth-page__btn--ghost"
+                onClick={() => {
+                  navigate('/')
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('tsl-open-auth-modal', { detail: { mode: 'signin' } }))
+                  }, 50)
+                }}
+              >
+                <ArrowLeft size={16} />
+                Back to Login
+              </button>
+            </div>
+          </form>
+        </div>,
+        document.body
+      )}
+    </>
   )
 }

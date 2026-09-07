@@ -148,6 +148,11 @@
   background: var(--color-gold-light, #E3C36F);
 }
 
+.fa-snapshot-missing-text {
+  color: #64748b;
+  font-size: 14px;
+}
+
 /* ── Counsel-sent toast ───────────────────────────────────── */
 .fa-counsel-toast {
   display: flex;

@@ -201,7 +201,10 @@ export function useBillingSubscription(payFn?: UpgradePayFn) {
     // ── Step 1: collect payment when a payFn is injected ─────────────────
     let paymentReference: string | undefined
     if (payFn && upgradePreview) {
-      const ref = await payFn(upgradePreview.totalDueToday, selectedPlan.name)
+      // Pass the pre-tax amount — the UI displays totalDueToday minus tax,
+      // and Paystack adds VAT itself, so sending the gross would double-charge.
+      const amountExTax = upgradePreview.totalDueToday - (upgradePreview.tax ?? 0)
+      const ref = await payFn(amountExTax, selectedPlan.name)
       if (ref === null) {
         // User cancelled or payment failed — payFn already showed an error
         setActionLoading(false)
@@ -248,8 +251,8 @@ export function useBillingSubscription(payFn?: UpgradePayFn) {
       nextBillingDate: result.nextBillingDate,
       paymentMethod: prev?.paymentMethod ?? null,
       pendingDowngrade: null,
-      counselCreditsTotal: spec?.counselCredits ?? 0,
-      counselCreditsRemaining: spec?.counselCredits ?? 0,
+      counselCreditsTotal: result.counselCreditsTotal ?? spec?.counselCredits ?? 0,
+      counselCreditsRemaining: result.counselCreditsRemaining ?? spec?.counselCredits ?? 0,
     }))
 
     // ── Step 5: update wizardAccess cache so Dashboard unlocks wizard access

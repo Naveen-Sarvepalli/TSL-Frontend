@@ -1,4 +1,5 @@
-import { ArrowLeft, CheckCircle2, CreditCard, Minus, Plus } from 'lucide-react'
+import { CheckCircle2, CreditCard, Minus, Plus } from 'lucide-react'
+import { BackButton } from '../../components/dashboard/BackButton'
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { DashboardShell } from '../../components/dashboard/DashboardShell'
@@ -10,15 +11,8 @@ import type { TopUpPlan } from './CounselCreditsModal'
 import './Dashboard.css'
 import './CounselTopUpPayment.css'
 
-const VAT_RATE = 0.15
 const MIN_CREDITS = 1
 const MAX_CREDITS = 20
-const COUNSEL_PLANS: Record<string, TopUpPlan> = {
-  launchpad: { name: 'Launchpad', credits: 0, sla: '2 Business Days', ratePerCredit: 550 },
-  operator: { name: 'Operator', credits: 2, sla: '1 Business Day', ratePerCredit: 500 },
-  boardroom: { name: 'Boardroom', credits: 6, sla: '8 Business Hours', ratePerCredit: 450 },
-}
-
 function getStoredUserEmail() {
   try {
     const user = JSON.parse(localStorage.getItem('tsl-auth-user') ?? '{}') as { email?: string }
@@ -32,15 +26,21 @@ function fmtZAR(amount: number) {
   return `R${amount.toLocaleString('en-ZA')}`
 }
 
+export type CounselTopUpReturnState = {
+  pathname: string
+  state?: Record<string, unknown>
+}
+
 export default function CounselTopUpPayment() {
   const location = useLocation()
   const navigate  = useNavigate()
 
   const requestedPlan = location.state?.plan as TopUpPlan | undefined
   const credits = location.state?.credits as CounselCredits | undefined
-  // Use the plan the user explicitly clicked (requestedPlan) so any plan can be
-  // topped up regardless of which plan the user is currently subscribed to.
-  const plan = requestedPlan ? COUNSEL_PLANS[requestedPlan.name.trim().toLowerCase()] : undefined
+  const returnTo = location.state?.returnTo as CounselTopUpReturnState | undefined
+  // The selected tier comes from the plan configuration returned by the API.
+  // It determines this one-off Counsel credit purchase only.
+  const plan = requestedPlan
 
   setPageMetadata('Top Up Credits', 'Purchase additional counsel credits.')
 
@@ -58,10 +58,8 @@ export default function CounselTopUpPayment() {
   }
 
   // ── order calculations ───────────────────────────────────────────────────
-  const unitPrice  = plan.ratePerCredit
-  const subtotal   = unitPrice * qty
-  const vat        = Math.round(subtotal * VAT_RATE)
-  const total      = subtotal + vat
+  const unitPrice = plan.ratePerCredit
+  const total     = unitPrice * qty
 
   // ── quantity handlers ────────────────────────────────────────────────────
   const clamp = (n: number) => Math.max(MIN_CREDITS, Math.min(MAX_CREDITS, n))
@@ -118,9 +116,21 @@ export default function CounselTopUpPayment() {
 
     setIsPaying(false)
 
-    navigate('/dashboard/counsel', {
+    if (credits) {
+      const updatedCredits: CounselCredits = {
+        ...credits,
+        creditsRemaining: credits.creditsRemaining + qty,
+      }
+      sessionStorage.setItem('tsl-counsel-credits-session', JSON.stringify(updatedCredits))
+    }
+
+    navigate(returnTo?.pathname ?? '/dashboard/counsel', {
       replace: true,
-      state:   { topUpSuccess: true, creditsAdded: qty },
+      state: {
+        ...(returnTo?.state ?? {}),
+        topUpSuccess: true,
+        creditsAdded: qty,
+      },
     })
   }
 
@@ -128,14 +138,7 @@ export default function CounselTopUpPayment() {
     <DashboardShell activeSection="Counsel">
       <main className="counsel-topup-payment">
         <header className="counsel-topup-payment__header">
-          <button
-            type="button"
-            className="counsel-topup-payment__back-btn"
-            aria-label="Back to Counsel"
-            onClick={() => navigate('/dashboard/counsel')}
-          >
-            <ArrowLeft size={18} />
-          </button>
+          <BackButton to="/dashboard/counsel" label="Back to Counsel" />
           <div>
             <h1>Top Up Credits</h1>
             <p>Complete your credit purchase</p>
@@ -224,11 +227,7 @@ export default function CounselTopUpPayment() {
                   <span>
                     {plan.name} Top-Up ({qty} credit{qty !== 1 ? 's' : ''} × {fmtZAR(unitPrice)})
                   </span>
-                  <span>{fmtZAR(subtotal)}</span>
-                </li>
-                <li>
-                  <span>VAT (15%)</span>
-                  <span>{fmtZAR(vat)}</span>
+                  <span>{fmtZAR(total)}</span>
                 </li>
               </ul>
 
@@ -252,7 +251,7 @@ export default function CounselTopUpPayment() {
               </button>
 
               <p className="counsel-topup-payment__secure-note">
-                Secured via Paystack · ZAR · VAT incl.
+                Secured via Paystack · ZAR
               </p>
             </section>
 
