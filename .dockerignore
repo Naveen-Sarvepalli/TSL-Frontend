@@ -1,0 +1,12 @@
+node_modules
+.git
+.vscode
+dist
+coverage
+*.log
+*.md
+tsconfig.tsbuildinfo
+# Ignore ALL test files
+src/**/*.test.ts
+src/**/*.test.tsx
+src/test
