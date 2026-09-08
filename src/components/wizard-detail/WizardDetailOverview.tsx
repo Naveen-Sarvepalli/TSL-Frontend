@@ -107,14 +107,6 @@ function getPlanFromCount(totalCount: number): PlanKey {
   return 'Boardroom'
 }
 
-const _includedItems = [
-  'SA-specific mutual or one-way NDA',
-  'Plain-language summary of key clauses',
-  'Built-in e-signature integration',
-  'Tamper-proof evidence pack with timestamps',
-  'BEE/verified digital certification',
-]
-
 const startItems = [
   'Disclosing party details (name, company, contact)',
   'Receiving party details',

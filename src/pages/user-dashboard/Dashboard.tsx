@@ -175,7 +175,6 @@ function buildPlanBenefits(sub: SubscriptionData, _plan: SubscriptionPlan | unde
   ]
 }
 
-const _PREVIEW_COUNT = 4
 const wizardAccessCacheKey = 'tsl-wizard-access-cache'
 
 // Full feature details shown in the "View All Features" modal per plan
@@ -1930,9 +1929,6 @@ export default function Dashboard() {
       return next
     })
   }
-
-  // Derived: set of blueprint types that have at least one in-progress instance
-  const _inProgressTitles = new Set<string>(inProgressInstances.map((inst) => inst.wizardType))
 
   // Decrement one instance from the New queue and open the corresponding modal.
   const handleStart = (title: string) => {
