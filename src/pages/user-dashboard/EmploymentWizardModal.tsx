@@ -62,7 +62,7 @@ function PreviewSection({ num, title, onEdit, children }: { num: number; title: 
 }
 
 function StepBar({ step }: { step: Step }) {
-  const labels = ['Role', 'Package', 'Conditions', 'Preview'] as const
+  const labels = ['Role', 'Package', 'Conditions'] as const
   return (
     <div className="nda-modal__steps">
       {labels.map((label, index) => {
@@ -94,6 +94,7 @@ export default function EmploymentWizardModal({ onClose, onComplete, initialStep
   }))
   const [isGenerating, setIsGenerating] = useState(false)
   const [errors, setErrors] = useState<FieldErrors>({})
+  const [triedPreview, setTriedPreview] = useState(false)
 
   useEffect(() => {
     if (data.company_id || initialData?.employer_name || !snapshotEmployerName) return
@@ -140,6 +141,10 @@ export default function EmploymentWizardModal({ onClose, onComplete, initialStep
   }
   const toggle = (key: 'benefits' | 'conditions', value: string) => {
     const selected = data[key].includes(value) ? data[key].filter((entry) => entry !== value) : [...data[key], value]
+    if (key === 'conditions' && value === 'Medical assessment' && !selected.includes(value)) {
+      setTriedPreview(false)
+      setErrors((prev) => ({ ...prev, medical_justification: undefined }))
+    }
     if (key === 'conditions' && value === 'Valid work authorisation' && !selected.includes(value)) {
       const next = { ...data, conditions: selected, work_permit_type: '', work_permit_expiry: '' }
       setData(next)
@@ -159,6 +164,13 @@ export default function EmploymentWizardModal({ onClose, onComplete, initialStep
   const belowNmw = salaryNum > 0 && (
     (data.salary_period === 'Per month' && salaryNum < NMW_MONTHLY) ||
     (data.salary_period === 'Per annum' && salaryNum < NMW_ANNUAL)
+  )
+  // Warn when the amount looks like it belongs to the other period type:
+  // e.g. entering an annual-range figure (≥ NMW_ANNUAL) as "Per month",
+  // or entering a monthly-range figure (< NMW_ANNUAL but ≥ NMW_MONTHLY) as "Per annum".
+  const wrongPeriod = salaryNum > 0 && !belowNmw && (
+    (data.salary_period === 'Per month' && salaryNum >= NMW_ANNUAL) ||
+    (data.salary_period === 'Per annum' && salaryNum < NMW_ANNUAL && salaryNum >= NMW_MONTHLY)
   )
 
   const validate = (): boolean => {
@@ -182,7 +194,9 @@ export default function EmploymentWizardModal({ onClose, onComplete, initialStep
       if (medicalSelected && !data.medical_justification.trim()) e['medical_justification'] = 'An inherent requirement is needed for a medical assessment.'
       if (workAuthorisationSelected && !data.work_permit_type) e['work_permit_type'] = 'Select the work authorisation type.'
       if (requiresWorkPermitExpiry && !data.work_permit_expiry) e['work_permit_expiry'] = 'Work authorisation expiry is required.'
+      else if (requiresWorkPermitExpiry && data.work_permit_expiry < new Date().toISOString().split('T')[0]) e['work_permit_expiry'] = 'Work authorisation expiry cannot be in the past.'
       if (!data.offer_expiry) e['offer_expiry'] = 'Offer expiry date is required.'
+      else if (data.offer_expiry < new Date().toISOString().split('T')[0]) e['offer_expiry'] = 'Offer expiry date cannot be in the past.'
     }
     setErrors(e)
     return Object.keys(e).length === 0
@@ -190,7 +204,9 @@ export default function EmploymentWizardModal({ onClose, onComplete, initialStep
 
   const next = () => {
     if (step < 4) {
+      if (step === 3) setTriedPreview(true)
       if (!validate()) return
+      setTriedPreview(false)
       setErrors({})
       onStepChange?.(step, data)
       setStep((current) => (current + 1) as Step)
@@ -223,12 +239,11 @@ export default function EmploymentWizardModal({ onClose, onComplete, initialStep
 
         {isGenerating
           ? <div className="nda-modal__generating-overlay"><Loader2 size={36} className="nda-modal__generating-spinner" /><p>Generating Employment Offer Letter…</p></div>
-          : <div className="nda-modal__body"><div className={`nda-modal__step-content${step === 4 ? ' nda-modal__step-content--preview' : ''}`}>
+          : <div className="nda-modal__body"><div className={`nda-modal__step-content`}>
 
             {/* ── Step 1: Role ── */}
             {step === 1 && <section className="nda-modal__party-block">
               <h3 className="nda-modal__party-title">Role</h3>
-              <p className="nda-modal__field-hint">Who the offer is for, and the position being offered.</p>
 
               <div className="nda-modal__form-group">
                 <label className="nda-modal__label">Employer</label>
@@ -288,7 +303,6 @@ export default function EmploymentWizardModal({ onClose, onComplete, initialStep
             {/* ── Step 2: Package ── */}
             {step === 2 && <section className="nda-modal__party-block">
               <h3 className="nda-modal__party-title">Package</h3>
-              <p className="nda-modal__field-hint">Remuneration, benefits, and probation terms.</p>
 
               <div className="nda-modal__two-col">
                 <Field label="Remuneration" required error={e['salary_amount']}>
@@ -313,12 +327,16 @@ export default function EmploymentWizardModal({ onClose, onComplete, initialStep
                 </div>
               )}
 
-              {Number(data.probation_months) > 6 && (
+              {wrongPeriod && (
                 <div className="nda-modal__nmw-warning" role="alert">
                   <span className="nda-modal__nmw-warning-icon">⚠</span>
                   <div>
-                    <strong>Probation exceeds six months</strong>
-                    <p>Review whether this period is reasonable for the role before proceeding.</p>
+                    <strong>Check the period type</strong>
+                    <p>
+                      {data.salary_period === 'Per month'
+                        ? `R${salaryNum.toLocaleString()} per month is unusually high — did you mean per annum?`
+                        : `R${salaryNum.toLocaleString()} per annum is below the monthly minimum wage — did you mean per month?`}
+                    </p>
                   </div>
                 </div>
               )}
@@ -334,15 +352,25 @@ export default function EmploymentWizardModal({ onClose, onComplete, initialStep
               </Field>}
 
               <div className="nda-modal__two-col">
-                <Field label="Probation" optional hint="Months. Default 3.">
+                <Field label="Probation" optional>
                   <input className="nda-modal__input" type="number" min="0" value={data.probation_months} onChange={(event) => set('probation_months', event.target.value)} />
                 </Field>
-                <Field label="Restraint will apply" required error={e['restraint_flag']} hint={e['restraint_flag'] ? undefined : 'Must be disclosed in the offer, not introduced later.'}>
+                <Field label="Restraint will apply" required error={e['restraint_flag']}>
                   <div className="nda-modal__duration-grid">
                     {[true, false].map((choice) => <button key={String(choice)} type="button" className={`nda-modal__duration-btn${data.restraint_flag === choice ? ' nda-modal__duration-btn--active nda-modal__duration-btn--active-dark' : ''}`} onClick={() => set('restraint_flag', choice)}>{choice ? 'Yes' : 'No'}</button>)}
                   </div>
                 </Field>
               </div>
+
+              {Number(data.probation_months) > 6 && (
+                <div className="nda-modal__nmw-warning" role="alert">
+                  <span className="nda-modal__nmw-warning-icon">⚠</span>
+                  <div>
+                    <strong>Probation exceeds six months</strong>
+                    <p>Review whether this period is reasonable for the role before proceeding.</p>
+                  </div>
+                </div>
+              )}
             </section>}
 
             {/* ── Step 3: Conditions ── */}
@@ -356,11 +384,11 @@ export default function EmploymentWizardModal({ onClose, onComplete, initialStep
                 </div>
               </Field>
 
-              {medicalSelected && <Field label="Inherent requirement for the medical" required error={e['medical_justification']}>
-                <textarea className={`nda-modal__textarea${e['medical_justification'] ? ' nda-modal__input--error' : ''}`} value={data.medical_justification} onChange={(event) => set('medical_justification', event.target.value)} />
+              {medicalSelected && <Field label="Inherent requirement for the medical" required error={triedPreview ? e['medical_justification'] : undefined}>
+                <textarea className={`nda-modal__textarea${triedPreview && e['medical_justification'] ? ' nda-modal__input--error' : ''}`} value={data.medical_justification} onChange={(event) => { set('medical_justification', event.target.value); if (e['medical_justification']) setErrors((prev) => ({ ...prev, medical_justification: undefined })) }} />
               </Field>}
 
-              {medicalSelected && !data.medical_justification.trim() && (
+              {medicalSelected && !data.medical_justification.trim() && triedPreview && (
                 <div className="nda-modal__nmw-warning" role="alert">
                   <span className="nda-modal__nmw-warning-icon">⊘</span>
                   <div>
@@ -381,14 +409,14 @@ export default function EmploymentWizardModal({ onClose, onComplete, initialStep
               </Field>}
 
               {requiresWorkPermitExpiry && <div className="nda-modal__half-col">
-                <Field label="Work authorisation expiry" required error={e['work_permit_expiry']}>
-                  <input className={`nda-modal__input${e['work_permit_expiry'] ? ' nda-modal__input--error' : ''}`} type="date" value={data.work_permit_expiry} onChange={(event) => set('work_permit_expiry', event.target.value)} />
+                <Field label="Work authorisation expiry" required error={triedPreview ? e['work_permit_expiry'] : undefined}>
+                  <input className={`nda-modal__input${triedPreview && e['work_permit_expiry'] ? ' nda-modal__input--error' : ''}`} type="date" min={new Date().toISOString().split('T')[0]} value={data.work_permit_expiry} onChange={(event) => set('work_permit_expiry', event.target.value)} />
                 </Field>
               </div>}
 
               <div className="nda-modal__half-col">
-                <Field label="Offer expires" required error={e['offer_expiry']}>
-                  <input className={`nda-modal__input${e['offer_expiry'] ? ' nda-modal__input--error' : ''}`} type="date" value={data.offer_expiry} onChange={(event) => set('offer_expiry', event.target.value)} />
+                <Field label="Offer expires" required error={triedPreview ? e['offer_expiry'] : undefined}>
+                  <input className={`nda-modal__input${triedPreview && e['offer_expiry'] ? ' nda-modal__input--error' : ''}`} type="date" min={new Date().toISOString().split('T')[0]} value={data.offer_expiry} onChange={(event) => set('offer_expiry', event.target.value)} />
                 </Field>
               </div>
             </section>}
@@ -444,8 +472,7 @@ export default function EmploymentWizardModal({ onClose, onComplete, initialStep
             </button>
             <span className="nda-modal__step-counter">Step {step} of 4</span>
             <button type="button" className={`nda-modal__btn${step === 4 ? ' nda-modal__btn--generate' : step === 3 ? ' nda-modal__btn--preview' : ' nda-modal__btn--primary'}`} onClick={next}>
-              {step === 4 ? 'Generate Offer Letter' : step === 3 ? <><Eye size={15} />Preview</> : 'Next Step'}
-              {step !== 3 && <ArrowRight size={15} />}
+              {step === 4 ? 'Generate Offer Letter' : step === 3 ? <><Eye size={15} />Preview</> : <>Next Step <ArrowRight size={15} /></>}
             </button>
           </footer>
         )}
