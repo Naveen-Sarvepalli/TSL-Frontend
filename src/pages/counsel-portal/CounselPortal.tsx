@@ -910,7 +910,7 @@ function RequestsView({
   search,
   setSearch,
   setStatusFilter,
-  statusFilter,
+  statusFilter
 }: {
   requests: CounselRequest[]
   onOpenRequest: (request: CounselRequest) => void
@@ -929,7 +929,6 @@ function RequestsView({
         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'all' | RequestStatus)}>
           <option value="all">All Status</option>
           <option value="pending">Pending</option>
-          <option value="in_progress">In Progress</option>
           <option value="completed">Completed</option>
           <option value="rejected">Rejected</option>
         </select>
