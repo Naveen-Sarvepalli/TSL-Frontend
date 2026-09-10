@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Zap, ArrowUpCircle } from 'lucide-react'
+import { X, Zap } from 'lucide-react'
 import type { BlueprintTopUpLocationState } from './BlueprintTopUpPayment'
 import './InsufficientBlueprintUnitsModal.css'
 
@@ -24,8 +24,7 @@ export default function InsufficientBlueprintUnitsModal({
   iconName,
   returnTo,
   returnTab,
-  onClose,
-  onUpgrade,
+  onClose
 }: Props) {
   const navigate = useNavigate()
   const minimum = Math.max(0, required - remaining)
@@ -128,10 +127,6 @@ export default function InsufficientBlueprintUnitsModal({
         <div className="ibum__actions">
           <button type="button" className="ibum__btn ibum__btn--cancel" onClick={onClose}>
             Cancel
-          </button>
-          <button type="button" className="ibum__btn ibum__btn--upgrade" onClick={onUpgrade}>
-            <ArrowUpCircle size={15} />
-            Upgrade
           </button>
           <button
             type="button"
