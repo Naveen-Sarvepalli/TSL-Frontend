@@ -397,11 +397,6 @@ export default function DashboardCounsel() {
       return
     }
 
-    if (!formData.relatedWizard) {
-      setErrorMessage('Choose the wizard document to be reviewed before submitting a counsel request.')
-      return
-    }
-
     const creditsRequired = 1
     if (credits.creditsRemaining < creditsRequired) {
       setErrorMessage('You do not have any counsel credits remaining. Please top up before submitting.')
@@ -671,18 +666,18 @@ export default function DashboardCounsel() {
                 </div>
 
                 <label className="dashboard-counsel__field">
-                  <span>Related Wizard <span style={{ color: '#c0392b' }}>*</span></span>
+                  <span>Related Blueprint <span style={{ color: '#57606a', fontSize: '0.85em' }}>(optional)</span></span>
                   <select
-                    aria-label="Related Wizard"
+                    aria-label="Related Blueprint"
                     value={formData.relatedWizard}
                     onChange={(event) => handleFieldChange('relatedWizard', event.target.value)}
                   >
                     <option value="" disabled />
                     <option>Non-Disclosure Agreement (NDA)</option>
                     <option>Employment Offer Letter</option>
-                    <option>Privacy Policy (POPIA Compliant)</option>
-                    <option>Founder Agreement</option>
-                    <option>Service Agreement</option>
+                    <option>Privacy &amp; Cookies Policy</option>
+                    <option>Founders agreement and IP assignment</option>
+                    <option>Service Level Agreement (SLA)</option>
                   </select>
                 </label>
 
@@ -795,7 +790,7 @@ export default function DashboardCounsel() {
                       <div><dt>Request ID</dt><dd>{activeRequest.requestId}</dd></div>
                       <div><dt>Submitted</dt><dd>{activeRequest.date}</dd></div>
                       <div><dt>Status</dt><dd>{activeRequest.status}</dd></div>
-                      {activeRequest.relatedWizard ? <div><dt>Related wizard</dt><dd>{activeRequest.relatedWizard}</dd></div> : null}
+                      {activeRequest.relatedWizard ? <div><dt>Related blueprint</dt><dd>{activeRequest.relatedWizard}</dd></div> : null}
                     </dl>
                     {activeRequest.description ? <p>{activeRequest.description}</p> : null}
                     {activeRequest.attachments?.length ? <FileList title="Your attachments" files={activeRequest.attachments} /> : null}

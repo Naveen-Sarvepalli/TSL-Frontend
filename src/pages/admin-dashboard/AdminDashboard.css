@@ -1569,6 +1569,15 @@
 .adm-modal__input[readonly],
 .adm-modal__input:disabled { background: #f7f8fa; color: #57606a; cursor: default; }
 
+.adm-modal__select--disabled,
+.adm-modal__select:disabled {
+  background: #f7f8fa;
+  color: #57606a;
+  cursor: not-allowed;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
 .adm-modal__input--error { border-color: #dc2626 !important; }
 .adm-modal__error { font-size: 12px; color: #dc2626; margin: 0; }
 
@@ -2576,8 +2585,37 @@
 }
 
 .admin-settings__row h3 {
+  font-family: 'Montserrat', var(--font-display), sans-serif;
+  font-style: normal;
+  font-weight: 600;
   font-size: 16px;
   line-height: 24px;
+  color: #0D1B2A;
+}
+
+.admin-settings__session-select {
+  height: 36px;
+  width: 126px;
+  padding: 0 35px 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0d1b2a;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  appearance: auto;
+}
+
+.admin-settings__session-select:focus {
+  border-color: #c79a3b;
+  box-shadow: 0 0 0 2px rgba(199, 154, 59, 0.15);
+}
+
+.admin-settings__session-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .admin-settings__toggle {
@@ -2676,6 +2714,17 @@
   font-weight: 700;
   cursor: pointer;
   transition: opacity 0.15s;
+}
+
+.admin-settings__security-save-btn {
+  font-family: 'Open Sans', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 24px;
+  text-align: center;
+  color: #ffffff;
+  gap: 8px;
 }
 
 .admin-settings__footer button:disabled,
@@ -3375,7 +3424,7 @@
 }
 
 .fp-modal {
-  width: min(100%, 1080px);
+  width: min(100%, 1300px);
   max-height: 90vh;
   background: #fff;
   border-radius: 16px;
@@ -4270,6 +4319,23 @@
 .modal-form textarea:focus {
   outline: none;
   border-color: #d4a84f;
+}
+
+.modal-form__input--error {
+  border-color: #e53e3e !important;
+  background: #fff5f5 !important;
+}
+
+.modal-form__input--error:focus {
+  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.12);
+}
+
+.modal-form__error {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #e53e3e;
+  font-weight: 400;
 }
 
 .modal-form input::placeholder,

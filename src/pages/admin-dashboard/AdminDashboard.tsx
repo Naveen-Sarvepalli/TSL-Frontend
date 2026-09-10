@@ -75,11 +75,14 @@ type AdminDashboardData = {
     requestId: string
     subject: string
     fromUser: string
+    fromUserEmail?: string | null
     receivedAt: string
     status: string
     assignedCounselName?: string
     rejectionReason?: string
     rejectedAt?: string
+    description?: string | null
+    relatedWizard?: string | null
   }>
   notifications?: Array<{ notificationId: string; type: string; requestId: string; subject: string; message: string; read: boolean; createdAt: string }>
   revenueChart?: {
@@ -551,10 +554,25 @@ export default function AdminDashboard() {
     if (!activeRequest) return
 
     const selectedMember = assignableCounselMembers.find((member) => member.email === selectedCounsel)
+
+    // Resolve the admin's display name: prefer loaded profile, fall back to localStorage auth user
+    const adminFullName = (() => {
+      const fromProfile = [adminProfile.firstName, adminProfile.lastName].filter(Boolean).join(' ').trim()
+      if (fromProfile) return fromProfile
+      try {
+        const stored = JSON.parse(localStorage.getItem('tsl-auth-user') ?? '{}') as { fullName?: string; email?: string }
+        return stored.fullName || stored.email || 'Admin'
+      } catch {
+        return 'Admin'
+      }
+    })()
+
     const response = await adminApi.assignCounselRequest(activeRequest.requestId, {
       counselEmail: selectedMember?.email ?? selectedCounsel,
       counselName: selectedMember?.name,
       assignedCounselName: selectedMember?.name,
+      assignedBy: adminFullName,
+      adminName: adminFullName,
     })
 
     if (!response.success) {
@@ -1208,7 +1226,7 @@ export default function AdminDashboard() {
                         {filtered.map((request) => {
                           const normStatus = request.status?.toLowerCase().replace(/_/g, ' ')
                           const assignedBy = (request as Record<string, unknown>).assignedCounselName as string | undefined
-                          const email = (request as Record<string, unknown>).fromUserEmail as string | undefined
+                          const email = request.fromUserEmail ?? undefined
                           return (
                             <article className={`ar-card${normStatus === 'rejected reassignment needed' ? ' ar-card--rejected' : ''}`} key={request.requestId}>
                               {/* Col 1 row 1: title */}
@@ -1244,8 +1262,8 @@ export default function AdminDashboard() {
                                 <div className="ar-card__user">
                                   <UserRound size={15} className="ar-card__user-icon" />
                                   <div className="ar-card__user-info">
-                                    <span className="ar-card__user-name">{request.fromUser || 'Michael Chen'}</span>
-                                    <span className="ar-card__user-email">{email ?? `${(request.fromUser || 'user').toLowerCase().replace(/\s+/g, '.')}@company.com`}</span>
+                                    <span className="ar-card__user-name">{request.fromUser}</span>
+                                    {(email || request.fromUserEmail) && <span className="ar-card__user-email">{email ?? request.fromUserEmail}</span>}
                                   </div>
                                 </div>
                                 {normStatus === 'rejected reassignment needed' && request.rejectionReason && <div className="ar-card__rejection-reason">Decline reason: {request.rejectionReason}</div>}
@@ -1315,7 +1333,7 @@ export default function AdminDashboard() {
                       <time>{formatTimeAgo(request.receivedAt)}</time>
                     </div>
                     <p>
-                      From: <strong>{request.fromUser || 'Michael Chen'}</strong>
+                      From: <strong>{request.fromUser}</strong>
                     </p>
                     <span className={`admin-dashboard__request-status admin-dashboard__request-status--${normStatus?.replace(/ /g, '-')}`}>
                       {statusLabel}
@@ -1512,7 +1530,7 @@ export default function AdminDashboard() {
 
                   <div className="admin-assignment__detail">
                     <span>From:</span>
-                    <strong>{activeRequest.fromUser || 'Michael Chen'}</strong>
+                    <strong>{activeRequest.fromUser}</strong>
                   </div>
 
                   <div className="admin-assignment__detail">
@@ -1522,11 +1540,7 @@ export default function AdminDashboard() {
 
                   <div className="admin-assignment__detail admin-assignment__detail--paragraph">
                     <span>Description:</span>
-                    <p>
-                      I need a comprehensive review of our new SaaS agreement template. The contract includes
-                      subscription terms, data privacy clauses, and service level agreements. Please ensure compliance
-                      with current regulations and industry best practices.
-                    </p>
+                    <p>{activeRequest.description || '—'}</p>
                   </div>
 
                   {(() => {
@@ -1562,10 +1576,12 @@ export default function AdminDashboard() {
                     )
                   })()}
 
-                  <div className="admin-assignment__detail">
-                    <span>Related Wizard:</span>
-                    <strong>SaaS Contract Generator</strong>
-                  </div>
+                  {activeRequest.relatedWizard && (
+                    <div className="admin-assignment__detail">
+                      <span>Related Blueprint:</span>
+                      <strong>{activeRequest.relatedWizard}</strong>
+                    </div>
+                  )}
                 </section>
 
                 <footer className="admin-assignment__footer">
