@@ -209,7 +209,16 @@ function normalizeRequests(payload: unknown): CounselRequest[] {
   const data = payload as { requests?: CounselRequest[] } | CounselRequest[] | undefined
   const raw = Array.isArray(data) ? data : (data?.requests ?? [])
   const list = raw.length ? raw : fallbackRequests
-  return list.map((r) => ({ ...r, status: normalizeStatus(r.status) }))
+  return list.map((r) => {
+    // Support multiple possible field names the API may use for the admin who assigned the request
+    const rec = r as Record<string, unknown>
+    const assignedBy = (rec.assignedBy ?? rec.adminName ?? rec.assigned_by ?? rec.assignedAdmin ?? 'Admin') as string
+    return {
+      ...r,
+      assignedBy,
+      status: normalizeStatus(r.status),
+    }
+  })
 }
 
 export default function CounselPortal({ mode }: { mode: CounselMode }) {
@@ -465,7 +474,7 @@ export default function CounselPortal({ mode }: { mode: CounselMode }) {
             onOpenRequest={setSelectedRequest}
           />
         )}
-        {selectedRequest ? <RequestDetailsModal request={selectedRequest} onClose={() => setSelectedRequest(null)} onComplete={completeRequest} onStartReview={(id) => setRequestStatus(id, 'in_progress')} onReject={(id, reason) => setRequestStatus(id, 'rejected', reason)} /> : null}
+        {selectedRequest ? <RequestDetailsModal request={selectedRequest} initialView={((selectedRequest as CounselRequest & { _initialView?: string })._initialView as 'overview' | 'accept' | 'reject') ?? 'overview'} onClose={() => setSelectedRequest(null)} onComplete={completeRequest} onStartReview={(id) => setRequestStatus(id, 'in_progress')} onReject={(id, reason) => setRequestStatus(id, 'rejected', reason)} /> : null}
       </main>
     </div>
   )
@@ -483,22 +492,22 @@ function readFileAsDataUrl(file: File): Promise<string> {
 }
 
 function RequestDetailsModal({
-  request, onClose, onComplete, onReject, onStartReview,
+  request, onClose, onComplete, onReject, onStartReview, initialView = 'overview',
 }: {
   request: CounselRequest
   onClose: () => void
   onComplete: (id: string, response: string, documents: DocMeta[]) => Promise<string>
   onReject: (id: string, reason: string) => void
   onStartReview: (id: string) => void
+  initialView?: 'overview' | 'accept' | 'reject'
 }) {
   // 'overview' | 'accept' | 'reject'
-  const [view, setView] = useState<'overview' | 'accept' | 'reject'>('overview')
+  const [view, setView] = useState<'overview' | 'accept' | 'reject'>(initialView)
   const [response, setResponse] = useState(request.counselResponse || '')
   const [reason, setReason] = useState('')
   const [confirmRejection, setConfirmRejection] = useState(false)
   const [error, setError] = useState('')
-  const minimumRejectionReasonLength = 20
-  const canReject = confirmRejection && reason.trim().length >= minimumRejectionReasonLength
+  const canReject = confirmRejection && reason.trim().length > 0
   const [documents, setDocuments] = useState<DocMeta[]>([])
 
   const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -521,7 +530,7 @@ function RequestDetailsModal({
     setError(await onComplete(request.requestId, response.trim(), documents))
   }
   const reject = () => {
-    if (reason.trim().length < minimumRejectionReasonLength) return setError(`Please provide at least ${minimumRejectionReasonLength} characters for the reassignment reason.`)
+    if (!reason.trim()) return setError('Please provide a reason for the reassignment.')
     if (!confirmRejection) return setError('Please confirm that the request should be returned to the admin.')
     onReject(request.requestId, reason.trim())
     onClose()
@@ -552,7 +561,7 @@ function RequestDetailsModal({
               <div><dt>Email</dt><dd>{request.userEmail}</dd></div>
               <div><dt>Assigned by</dt><dd>{request.assignedBy}</dd></div>
               <div><dt>Assigned date</dt><dd>{formatDate(request.assignedAt || request.date)}</dd></div>
-              {request.relatedWizard ? <div><dt>Related wizard</dt><dd>{request.relatedWizard}</dd></div> : null}
+              {request.relatedWizard ? <div><dt>Related blueprint</dt><dd>{request.relatedWizard}</dd></div> : null}
             </dl>
             <h4>Request description</h4>
             <p>{request.description || 'No additional description was provided.'}</p>
@@ -657,7 +666,6 @@ function RequestDetailsModal({
             <section className="counsel-request-modal__reject">
               <label htmlFor="rejection-reason">Reject request (admin only)</label>
               <textarea id="rejection-reason" value={reason} onChange={(event) => { setReason(event.target.value); setError('') }} placeholder="Mandatory reason for reassignment" aria-describedby="rejection-reason-help" />
-              <span id="rejection-reason-help" className="counsel-request-modal__reject-help">{reason.trim().length}/{minimumRejectionReasonLength} characters minimum</span>
               <label className="counsel-request-modal__reject-confirm"><input type="checkbox" checked={confirmRejection} onChange={(event) => { setConfirmRejection(event.target.checked); setError('') }} /> I confirm this request should be returned to the admin for reassignment.</label>
               <button type="button" className="counsel-request-modal__start" onClick={reject} disabled={!canReject}>Reject &amp; Return to Admin</button>
             </section>
@@ -691,12 +699,14 @@ function DashboardView({
   onOpenRequest: (request: CounselRequest) => void
   summary: NonNullable<NonNullable<DashboardData['earningsChart']>['summary']>
 }) {
+  const rejectedCount = requests.filter((r) => r.status === 'rejected').length
+  const rejectionRate = requests.length > 0 ? `${Math.round((rejectedCount / requests.length) * 100)}% rejection rate` : '0% rejection rate'
   return (
     <div className="counsel-dashboard">
       <section className="counsel-dashboard__kpis" aria-label="Counsel summary">
-        <KpiCard icon={<FileText size={20} />} value={kpis.totalRequests ?? 39} label="Total Requests" caption="All time requests" />
+        <KpiCard icon={<FileText size={20} />} value={requests.length || (kpis.totalRequests ?? 0)} label="Total Requests" caption="All time requests" />
         <KpiCard icon={<CircleCheckBig size={20} />} value={acceptedRequests.length} label="Accepted" caption="Requests accepted" />
-        <KpiCard icon={<CircleX size={20} />} value={kpis.rejected ?? 7} label="Rejected" caption={`${kpis.rejectedRate ?? '15%'} rejection rate`} />
+        <KpiCard icon={<CircleX size={20} />} value={rejectedCount} label="Rejected" caption={rejectionRate} />
         <KpiCard dark icon={<svg width="36" height="36" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M26 14.334V37.6673" stroke="#C79A3B" strokeWidth="2.33333" strokeLinecap="round" strokeLinejoin="round"/><path d="M31.8333 17.834H23.0833C22.0004 17.834 20.9618 18.2642 20.196 19.03C19.4302 19.7957 19 20.8344 19 21.9173C19 23.0003 19.4302 24.0389 20.196 24.8047C20.9618 25.5704 22.0004 26.0007 23.0833 26.0007H28.9167C29.9996 26.0007 31.0382 26.4309 31.804 27.1966C32.5698 27.9624 33 29.001 33 30.084C33 31.167 32.5698 32.2056 31.804 32.9713C31.0382 33.7371 29.9996 34.1673 28.9167 34.1673H19" stroke="#C79A3B" strokeWidth="2.33333" strokeLinecap="round" strokeLinejoin="round"/></svg>} value={formatMoney(kpis.totalEarnings ?? 28450)} label="Total Earnings" caption="Revenue generated" />
       </section>
 
@@ -734,7 +744,7 @@ function DashboardView({
                         <CircleCheck size={16} />
                         Review
                       </button>
-                      <button type="button" onClick={() => setRequestStatus(request.requestId, 'rejected')}>
+                      <button type="button" onClick={() => onOpenRequest({ ...request, status: 'pending', date: request.assignedAt ?? '', _initialView: 'reject' } as CounselRequest & { _initialView?: string })}>
                         <X size={16} />
                         Reject
                       </button>
@@ -952,7 +962,7 @@ function RequestsView({
                       <CircleCheck size={14} />
                       Review
                     </button>
-                    <button type="button" onClick={(event) => { event.stopPropagation(); onOpenRequest(request) }}>
+                    <button type="button" onClick={(event) => { event.stopPropagation(); onOpenRequest({ ...request, _initialView: 'reject' } as CounselRequest & { _initialView?: string }) }}>
                       <X size={14} />
                       Reject
                     </button>
