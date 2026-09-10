@@ -10,10 +10,12 @@ import {
   Star,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useSubscriptionPlans } from '../../hooks/useSubscriptionPlans'
 import { wizards } from '../../data/wizards.tsx'
 import { loadWizardQuantities, saveWizardQuantities } from '../../utils/wizardCart'
 import './WizardDetailOverview.css'
 
+<<<<<<< HEAD
 type PlanKey = 'Launchpad' | 'Operator' | 'Boardroom'
 
 const plans: Record<PlanKey, {
@@ -106,6 +108,9 @@ function getPlanFromCount(totalCount: number): PlanKey {
   if (totalCount >= 6 && totalCount <= 12) return 'Operator'
   return 'Boardroom'
 }
+=======
+const PLAN_ICONS = { launchpad: Rocket, operator: Building2, boardroom: Crown }
+>>>>>>> 78cb734647f29670b84f448ad7e8d7dd85ba0a74
 
 const startItems = [
   'Disclosing party details (name, company, contact)',
@@ -140,6 +145,7 @@ const testimonials = [
 
 export function WizardDetailOverview() {
   const navigate = useNavigate()
+  const { plans, loading: plansLoading } = useSubscriptionPlans()
   const [quantities, setQuantities] = useState(() => loadWizardQuantities())
 
   const selectedWizards = useMemo(
@@ -154,15 +160,13 @@ export function WizardDetailOverview() {
   )
 
   const totalWizards = selectedWizards.reduce((sum, w) => sum + w.quantity, 0)
-  const autoPlan = totalWizards > 0 ? getPlanFromCount(totalWizards) : 'Operator'
-  const [activePlan, setActivePlan] = useState<PlanKey>(autoPlan)
+  const [activePlanId, setActivePlanId] = useState('')
 
   // Keep active plan in sync whenever the total count changes
   useEffect(() => {
-    if (totalWizards > 0) {
-      setActivePlan(getPlanFromCount(totalWizards))
-    }
-  }, [totalWizards])
+    if (totalWizards <= 0 || plans.length === 0) return
+    setActivePlanId(plans.find((plan) => plan.wizardRuns >= totalWizards)?.planId ?? plans.at(-1)?.planId ?? '')
+  }, [plans, totalWizards])
 
   const selectedWizardLabel = `${totalWizards} wizard${totalWizards === 1 ? '' : 's'}`
 
@@ -279,17 +283,17 @@ export function WizardDetailOverview() {
         <div className="wizard-detail__panel-heading">
           <h2>Pricing for This Wizard</h2>
           <div className="wizard-detail__plan-tabs">
-            {(['Launchpad', 'Operator', 'Boardroom'] as PlanKey[]).map((plan) => {
-              const PlanIcon = plans[plan].icon
+            {plans.map((plan) => {
+              const PlanIcon = PLAN_ICONS[plan.planId as keyof typeof PLAN_ICONS] ?? Rocket
               return (
                 <button
-                  key={plan}
+                  key={plan.planId}
                   type="button"
-                  className={`wizard-detail__plan-tab${activePlan === plan ? ' wizard-detail__plan-tab--active' : ''}`}
-                  onClick={() => setActivePlan(plan)}
+                  className={`wizard-detail__plan-tab${activePlanId === plan.planId ? ' wizard-detail__plan-tab--active' : ''}`}
+                  onClick={() => setActivePlanId(plan.planId)}
                 >
                   <PlanIcon size={14} />
-                  {plan}
+                  {plan.name}
                 </button>
               )
             })}
@@ -297,30 +301,35 @@ export function WizardDetailOverview() {
         </div>
 
         {(() => {
-          const plan = plans[activePlan]
-          const PlanIcon = plan.icon
+          const plan = plans.find((candidate) => candidate.planId === activePlanId) ?? plans[0]
+          if (!plan) return plansLoading ? <p>Loading plan information…</p> : null
+          const PlanIcon = PLAN_ICONS[plan.planId as keyof typeof PLAN_ICONS] ?? Rocket
+          const included = plan.features.filter((feature) => !feature.toLowerCase().startsWith('not included:'))
+          const excluded = plan.features
+            .filter((feature) => feature.toLowerCase().startsWith('not included:'))
+            .map((feature) => feature.replace(/^not included:\s*/i, ''))
           return (
             <div className="wizard-detail__price-card">
               <div className="wizard-detail__price-header">
                 <div>
                   <h3>
                     <PlanIcon size={20} className="wizard-detail__plan-title-icon" />
-                    {plan.title}
+                    {plan.name} Plan
                   </h3>
-                  <p>{plan.description}</p>
+                  <p>{plan.tagline}</p>
                 </div>
                 <strong>
-                  {plan.price}
+                  R{plan.price.toLocaleString('en-ZA')}
                   <small>/month</small>
                 </strong>
               </div>
 
               <div className="wizard-detail__sample">
                 <div className="wizard-detail__included-box">
-                  <b>{plan.includesLabel}</b>
+                  <b>What's Included in {plan.name}:</b>
                   <div className="wizard-detail__includes-cols">
                     <ul>
-                      {plan.col1.map((item) => (
+                      {included.slice(0, Math.ceil(included.length / 2)).map((item) => (
                         <li key={item}>
                           <ChevronRight size={14} />
                           {item}
@@ -328,13 +337,13 @@ export function WizardDetailOverview() {
                       ))}
                     </ul>
                     <ul>
-                      {plan.col2.map((item) => (
+                      {included.slice(Math.ceil(included.length / 2)).map((item) => (
                         <li key={item}>
                           <ChevronRight size={14} />
                           {item}
                         </li>
                       ))}
-                      {plan.excluded.map((item) => (
+                      {excluded.map((item) => (
                         <li key={item} className="wizard-detail__includes-excluded">
                           <span>✕</span>
                           {item}

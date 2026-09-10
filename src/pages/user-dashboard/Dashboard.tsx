@@ -132,115 +132,26 @@ interface InProgressInstance {
 // Numeric values (runs, team members) come from the live SubscriptionData so they
 // stay accurate after an upgrade/downgrade without any frontend changes.
 // The label copy below matches the exact wording required by product.
-function buildPlanBenefits(sub: SubscriptionData, _plan: SubscriptionPlan | undefined): string[] {
-  const runs    = sub.wizardRuns === -1  ? 'Unlimited' : `${sub.wizardRuns}`
+function buildPlanBenefits(sub: SubscriptionData, plan: SubscriptionPlan | undefined): string[] {
+  if (plan) return plan.features.filter((feature) => !feature.toLowerCase().startsWith('not included:')).slice(0, 5)
+  const runs = sub.wizardRuns === -1 ? 'Unlimited' : `${sub.wizardRuns}`
   const members = sub.teamMembers === -1 ? 'Unlimited' : `${sub.teamMembers}`
-
-  const id = sub.planId?.toLowerCase() ?? ''
-
-  if (id === 'launchpad') {
-    return [
-      'All five Blueprints',
-      '4 Blueprint run units per month',
-      'Additional run units: R149 each',
-      'No Counsel credits included',
-      'Additional Counsel credits: R550 per credit (30 minutes of attorney time)',
-    ]
-  }
-
-  if (id === 'operator') {
-    return [
-      'All five Blueprints',
-      '12 Blueprint run units per month',
-      'Additional run units: R149 each',
-      '2 Counsel credits per month (1 hour of attorney time); unused credits expire at month end',
-      'Additional Counsel credits: R550 per credit',
-    ]
-  }
-
-  if (id === 'boardroom') {
-    return [
-      'All five Blueprints',
-      '30 Blueprint run units per month',
-      'Additional run units: R149 each',
-      '6 Counsel credits per month (3 hours of attorney time); unused credits expire at month end',
-      'Additional Counsel credits: R550 per credit',
-    ]
-  }
-
-  // Fallback: generic list built from API fields
-  return [
-    `${runs} Credits per month`,
-    `${members} team member${sub.teamMembers === 1 ? '' : 's'}`,
-  ]
+  return [`${runs} Blueprint run units per month`, `${members} team member${sub.teamMembers === 1 ? '' : 's'}`]
 }
 
 const wizardAccessCacheKey = 'tsl-wizard-access-cache'
 
-// Full feature details shown in the "View All Features" modal per plan
-const PLAN_FULL_FEATURES: Record<string, { items: string[]; excluded: string[] }> = {
-  Launchpad: {
-    items: [
-      'For founders setting the company up and putting the first documents in place',
-      'All five Blueprints',
-      '4 Blueprint run units per month',
-      'Additional run units: R149 each',
-      'No run-unit rollover; unused units expire at the end of the billing month',
-      'No Counsel credits included',
-      'Additional Counsel credits: R550 per credit (30 minutes of attorney time)',
-      'Email support: response within 48 business hours',
-      '1 user',
-      'Document storage: 12 months from generation',
-    ],
-    excluded: [
-      'Counsel credits',
-      'Additional users',
-    ],
-  },
-  Operator: {
-    items: [
-      'For growing teams that need regular legal documents and occasional attorney time',
-      'All five Blueprints',
-      '12 Blueprint run units per month',
-      'Additional run units: R149 each',
-      'No run-unit rollover; unused units expire at the end of the billing month',
-      '2 Counsel credits per month (1 hour of attorney time); unused credits expire at month end',
-      'Additional Counsel credits: R550 per credit',
-      'Priority email support: response within 24 business hours',
-      'Up to 5 users',
-      'Document storage: 24 months from generation',
-    ],
-    excluded: [
-      'Additional users beyond 3',
-    ],
-  },
-  Boardroom: {
-    items: [
-      'For established companies that need high-volume documents and regular attorney access',
-      'All five Blueprints',
-      '30 Blueprint run units per month',
-      'Additional run units: R149 each',
-      'No run-unit rollover; unused units expire at the end of the billing month',
-      '6 Counsel credits per month (3 hours of attorney time); unused credits expire at month end',
-      'Additional Counsel credits: R550 per credit',
-      'Dedicated support with SLA',
-      'Unlimited users',
-      'Document storage: 36 months from generation',
-    ],
-    excluded: [
-      'Additional users beyond 10',
-    ],
-  },
-}
-
 interface PlanFeaturesModalProps {
   planName: string
+  plan: SubscriptionPlan
   onClose: () => void
 }
 
-function PlanFeaturesModal({ planName, onClose }: PlanFeaturesModalProps) {
-  const plan = PLAN_FULL_FEATURES[planName]
-  if (!plan) return null
+function PlanFeaturesModal({ planName, plan, onClose }: PlanFeaturesModalProps) {
+  const included = plan.features.filter((feature) => !feature.toLowerCase().startsWith('not included:'))
+  const excluded = plan.features
+    .filter((feature) => feature.toLowerCase().startsWith('not included:'))
+    .map((feature) => feature.replace(/^not included:\\s*/i, ''))
 
   return (
     <div
@@ -265,13 +176,13 @@ function PlanFeaturesModal({ planName, onClose }: PlanFeaturesModalProps) {
         </h2>
 
         <ul className="user-dashboard__plan-modal-list">
-          {plan.items.map((item) => (
+          {included.map((item) => (
             <li key={item}>
               <CheckCircle2 size={16} />
               {item}
             </li>
           ))}
-          {plan.excluded.map((item) => (
+          {excluded.map((item) => (
             <li key={item} className="user-dashboard__plan-modal-list-excluded">
               <span className="user-dashboard__plan-modal-x">✕</span>
               {item}
@@ -286,13 +197,14 @@ function PlanFeaturesModal({ planName, onClose }: PlanFeaturesModalProps) {
 interface PlanCardProps {
   planName: string
   benefits: string[]
+  plan?: SubscriptionPlan
   variant: 'landing' | 'paid'
   isFree?: boolean
 }
 
-function PlanCard({ planName, benefits, variant, isFree }: PlanCardProps) {
+function PlanCard({ planName, benefits, plan, variant, isFree }: PlanCardProps) {
   const [showModal, setShowModal] = useState(false)
-  const hasFullFeatures = planName in PLAN_FULL_FEATURES
+  const hasFullFeatures = Boolean(plan)
 
   return (
     <>
@@ -330,9 +242,7 @@ function PlanCard({ planName, benefits, variant, isFree }: PlanCardProps) {
         )}
       </div>
 
-      {showModal && (
-        <PlanFeaturesModal planName={planName} onClose={() => setShowModal(false)} />
-      )}
+      {showModal && plan && <PlanFeaturesModal planName={planName} plan={plan} onClose={() => setShowModal(false)} />}
     </>
   )
 }
@@ -933,8 +843,9 @@ function buildPrivacyPolicyPdf(d: PrivacyPolicyWizardData, completedAt: string |
     `Responsible Party     : ${d.responsibleParty || '—'}`,
     `Confirmed             : ${d.responsiblePartyConfirmed ? 'Yes' : 'No'}`,
     `Information Officer   : ${d.officerFullNames || '—'}`,
-    `ID Number             : ${d.officerIdNumber || '—'}`,
     `Officer Email         : ${d.officerEmail || '—'}`,
+    `Officer Address       : ${d.officerAddress || '—'}`,
+    `Officer Telephone     : ${d.officerPhone || '—'}`,
     `Privacy Email         : ${d.privacyEmail || '—'}`,
     `Domains               : ${d.domains.filter(Boolean).join(', ') || '—'}`,
     '',
@@ -1025,8 +936,9 @@ function buildPrivacyPolicyEvidencePack(d: PrivacyPolicyWizardData, completedAt:
     `   Responsible Party   : ${d.responsibleParty || '—'}`,
     `   Confirmed           : ${d.responsiblePartyConfirmed ? 'Yes' : 'No'}`,
     `   Information Officer : ${d.officerFullNames || '—'}`,
-    `   ID Number           : ${d.officerIdNumber || '—'}`,
     `   Officer Email       : ${d.officerEmail || '—'}`,
+    `   Officer Address     : ${d.officerAddress || '—'}`,
+    `   Officer Telephone   : ${d.officerPhone || '—'}`,
     `   Privacy Email       : ${d.privacyEmail || '—'}`,
     `   Domains             : ${d.domains.filter(Boolean).join(', ') || '—'}`,
     '',
@@ -1693,6 +1605,18 @@ export default function Dashboard() {
     () => (location.state as DashboardLocationState | null)?.counselBlueprintReturn,
   )
   const { profile } = useUserProfile()
+  const privacyResponsibleParty = profile.entityType === 'Individual'
+    ? profile.individualFullNames.trim()
+    : (profile.legalName || profile.tradingName || '').trim()
+  const privacyInformationOfficerDefaults = profile.entityType === 'Individual'
+    ? {
+        officerFullNames: profile.individualFullNames,
+        officerIdNumber: profile.idNumber,
+        officerEmail: profile.businessEmail || profile.email,
+        officerAddress: profile.physicalAddress,
+        officerPhone: profile.businessPhone || profile.phone,
+      }
+    : undefined
   const resolveEmploymentSnapshot = useCallback((data: EmploymentWizardData): EmploymentWizardData => {
     // The specification defines Employer as a Company Snapshot link, so use
     // the linked snapshot name at export time rather than a stale draft value.
@@ -2207,7 +2131,7 @@ export default function Dashboard() {
           remaining: shortage.remainingBlueprintUnits,
           required: shortage.requiredBlueprintUnits,
           blueprintName: bpName,
-          pricePerUnit: shortage.blueprintRunTopUpRate ?? 149,
+          pricePerUnit: shortage.blueprintRunTopUpRate ?? subscription?.blueprintRunTopUpRate ?? 0,
           iconName: BLUEPRINT_ICON_NAME[bpName] ?? 'Shield',
         })
       } else showNdaToast(response.message || 'Unable to generate the final document.')
@@ -2452,6 +2376,7 @@ export default function Dashboard() {
           <PlanCard
             planName={subscription?.planName ?? capitalizePlan(user?.plan)}
             benefits={subscription ? buildPlanBenefits(subscription, currentPlan) : []}
+            plan={currentPlan}
             variant="landing"
             isFree={(subscription?.planId?.toLowerCase() ?? user?.plan?.toLowerCase()) === 'free'}
           />
@@ -2739,8 +2664,10 @@ export default function Dashboard() {
               setIsPPModalOpen(false); setActiveTab('inProgress'); openReturningDashboard()
             }}
             initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
-            initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as PrivacyPolicyWizardData | undefined) : { responsibleParty: profile.entityType === 'Individual' ? (profile.individualFullNames || '') : (profile.legalName || profile.tradingName || '') } as Partial<PrivacyPolicyWizardData> as PrivacyPolicyWizardData}
-            responsiblePartyFallback={profile.entityType === 'Individual' ? (profile.individualFullNames || '') : (profile.legalName || profile.tradingName || '')}
+            initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as PrivacyPolicyWizardData | undefined) : { responsibleParty: privacyResponsibleParty }}
+            responsiblePartyFallback={privacyResponsibleParty}
+            snapshotEntityType={profile.entityType}
+            informationOfficerDefaults={privacyInformationOfficerDefaults}
             onStepChange={(step, data) => savePPProgress(step, data)}
             onComplete={(data) => {
               const cid = continuingInstanceRef.current
@@ -2878,6 +2805,7 @@ export default function Dashboard() {
         <PlanCard
           planName={subscription?.planName ?? capitalizePlan(user?.plan)}
           benefits={subscription ? buildPlanBenefits(subscription, currentPlan) : []}
+          plan={currentPlan}
           variant="paid"
           isFree={(subscription?.planId?.toLowerCase() ?? user?.plan?.toLowerCase()) === 'free'}
         />
@@ -3409,8 +3337,10 @@ export default function Dashboard() {
             setIsPPModalOpen(false)
           }}
           initialStep={continuingInstanceRef.current ? ((inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.step ?? 1)) : 1}
-          initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as PrivacyPolicyWizardData | undefined) : { responsibleParty: profile.entityType === 'Individual' ? (profile.individualFullNames || '') : (profile.legalName || profile.tradingName || '') } as Partial<PrivacyPolicyWizardData> as PrivacyPolicyWizardData}
-          responsiblePartyFallback={profile.entityType === 'Individual' ? (profile.individualFullNames || '') : (profile.legalName || profile.tradingName || '')}
+          initialData={continuingInstanceRef.current ? (inProgressInstances.find(i => i.id === continuingInstanceRef.current)?.data as PrivacyPolicyWizardData | undefined) : { responsibleParty: privacyResponsibleParty }}
+          responsiblePartyFallback={privacyResponsibleParty}
+          snapshotEntityType={profile.entityType}
+          informationOfficerDefaults={privacyInformationOfficerDefaults}
           onStepChange={(step, data) => savePPProgress(step, data)}
           onComplete={(data) => {
             const cid = continuingInstanceRef.current
