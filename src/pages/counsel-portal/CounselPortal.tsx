@@ -21,11 +21,11 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useCounselAvailability } from '../../context/CounselAvailabilityContext'
 import { clearAuthSession, counselPortalApi } from '../../services/tslApi'
 import './CounselPortal.css'
 
 type CounselMode = 'dashboard' | 'requests'
-type Availability = 'available' | 'unavailable'
 type RequestStatus = 'pending' | 'in_progress' | 'completed' | 'rejected'
 
 type DashboardRequest = {
@@ -69,7 +69,7 @@ type DashboardData = {
     totalEarnings?: number
     currency?: string
   }
-  availability?: Availability
+  availability?: 'available' | 'unavailable'
   pendingRequests?: DashboardRequest[]
   acceptedRequests?: Array<{
     requestId: string
@@ -224,10 +224,10 @@ function normalizeRequests(payload: unknown): CounselRequest[] {
 export default function CounselPortal({ mode }: { mode: CounselMode }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { availability, toggleAvailability } = useCounselAvailability()
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [requests, setRequests] = useState<CounselRequest[]>(fallbackRequests)
   const [acceptedRequestsState, setAcceptedRequestsState] = useState<AcceptedEntry[]>(() => readStoredAccepted())
-  const [availability, setAvailability] = useState<Availability>('available')
   const [statusFilter, setStatusFilter] = useState<'all' | RequestStatus>('all')
   const [search, setSearch] = useState('')
   const [selectedRequest, setSelectedRequest] = useState<CounselRequest | null>(null)
@@ -270,7 +270,6 @@ export default function CounselPortal({ mode }: { mode: CounselMode }) {
       if (!response.success) return
       const data = (response.data ?? null) as DashboardData | null
       setDashboardData(data)
-      setAvailability(data?.availability ?? 'available')
       // Merge API accepted requests with locally-stored ones, deduplicating by requestId.
       // Local entries (accepted in this session before the API refreshed) take precedence.
       if ((data?.acceptedRequests?.length ?? 0) > 0) {
@@ -374,12 +373,6 @@ export default function CounselPortal({ mode }: { mode: CounselMode }) {
     return ''
   }
 
-  const toggleAvailability = async () => {
-    const next = availability === 'available' ? 'unavailable' : 'available'
-    setAvailability(next)
-    await counselPortalApi.availability(next)
-  }
-
   return (
     <div className="counsel-portal">
       <aside className="counsel-portal__sidebar">
@@ -470,7 +463,6 @@ export default function CounselPortal({ mode }: { mode: CounselMode }) {
             setSearch={setSearch}
             setStatusFilter={setStatusFilter}
             statusFilter={statusFilter}
-            total={requests.length}
             onOpenRequest={setSelectedRequest}
           />
         )}
@@ -685,7 +677,7 @@ function DashboardView({
   months,
   pendingRequests,
   requests,
-  setRequestStatus,
+  setRequestStatus: _setRequestStatus,
   onOpenRequest,
   summary,
 }: {
@@ -919,7 +911,6 @@ function RequestsView({
   setSearch,
   setStatusFilter,
   statusFilter,
-  total,
 }: {
   requests: CounselRequest[]
   onOpenRequest: (request: CounselRequest) => void
@@ -927,7 +918,6 @@ function RequestsView({
   setSearch: (value: string) => void
   setStatusFilter: (value: 'all' | RequestStatus) => void
   statusFilter: 'all' | RequestStatus
-  total: number
 }) {
   return (
     <section className="counsel-requests">
@@ -948,7 +938,7 @@ function RequestsView({
       <div className="counsel-requests__list-card">
         <div className="counsel-requests__heading">
           <h3>All Requests</h3>
-          <p>{total} request(s) found</p>
+          <p>{requests.length} request(s) found</p>
         </div>
 
         <div className="counsel-requests__list">

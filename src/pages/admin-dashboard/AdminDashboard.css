@@ -2667,6 +2667,10 @@
   font-size: 14px;
   cursor: pointer;
 }
+.admin-settings__link:disabled {
+  color: #b0b7c3;
+  cursor: not-allowed;
+}
 
 .admin-settings__recommendations {
   display: grid;
@@ -4274,6 +4278,10 @@
   gap: 20px;
   padding: 32px;
   overflow-y: auto;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
 .modal-form__group {
