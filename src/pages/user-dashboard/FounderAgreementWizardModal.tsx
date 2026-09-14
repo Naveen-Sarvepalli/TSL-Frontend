@@ -720,6 +720,11 @@ export default function FounderAgreementWizardModal({
       if (!equityValid(data.founders)) { e.equity = 'Equity must total exactly 100%.'; valid = false }
     }
     if (s === 3 && data.vestingApplies === 'Yes') {
+      const vm = parseInt(data.vestingMonths)
+      const cm = parseInt(data.cliffMonths)
+      if (!data.vestingMonths.trim() || isNaN(vm) || vm <= 0) { e.vestingMonths = 'Enter a vesting period greater than 0.'; valid = false }
+      if (!data.cliffMonths.trim() || isNaN(cm) || cm <= 0) { e.cliffMonths = 'Enter a cliff period greater than 0.'; valid = false }
+      if (!e.vestingMonths && !e.cliffMonths && cm >= vm) { e.cliffMonths = 'Cliff must be less than the total vesting period.'; valid = false }
       if (!data.goodLeaver.length) { e.goodLeaver = 'Select at least one good leaver definition.'; valid = false }
     }
     if (s === 4 && data.decisionModel === 'Majority with reserved matters unanimous') {
@@ -975,12 +980,12 @@ export default function FounderAgreementWizardModal({
                   {data.vestingApplies === 'Yes' && (
                     <>
                       <div className="nda-modal__two-col">
-                        <Field label="Total vesting period (months)" required>
-                          <input type="number" className="nda-modal__input" min={1}
+                        <Field label="Total vesting period (months)" required error={errors.vestingMonths}>
+                          <input type="number" className={`nda-modal__input${errors.vestingMonths ? ' nda-modal__input--error' : ''}`} min={1}
                             value={data.vestingMonths} onChange={e => set('vestingMonths', e.target.value)} disabled={ipSectionLocked} />
                         </Field>
-                        <Field label="Cliff (months)" required>
-                          <input type="number" className="nda-modal__input" min={0}
+                        <Field label="Cliff (months)" required error={errors.cliffMonths}>
+                          <input type="number" className={`nda-modal__input${errors.cliffMonths ? ' nda-modal__input--error' : ''}`} min={1}
                             value={data.cliffMonths} onChange={e => set('cliffMonths', e.target.value)} disabled={ipSectionLocked} />
                         </Field>
                       </div>
