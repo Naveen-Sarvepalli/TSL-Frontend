@@ -1,5 +1,8 @@
 import type { UserProfile } from '../context/UserProfileContext'
-import type { FounderAgreementWizardData } from '../hooks/useFounderAgreementWizard'
+import {
+  deriveFounderAgreementSignatories,
+  type FounderAgreementWizardData,
+} from '../hooks/useFounderAgreementWizard'
 
 /**
  * The stable field-key contract for Blueprint 11.4. UI state deliberately uses
@@ -119,6 +122,10 @@ export function mapFounderAgreementFields(
     deadlock: data.deadlock,
     dispute_forum: data.disputeForum,
     governing_law: data.governingLaw,
-    signatories: data.signatories.map((signatory) => ({ name: signatory.name, capacity: signatory.capacity })),
+    signatories: deriveFounderAgreementSignatories(
+      data.founders,
+      data.isIncorporated,
+      { name: profile.signatoryName, capacity: profile.signatoryCapacity },
+    ).map((signatory) => ({ name: signatory.name, capacity: signatory.capacity })),
   }
 }

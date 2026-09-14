@@ -36,7 +36,39 @@ export interface FADigitalAsset {
 export interface FASignatory {
   id: string
   name: string
-  capacity: 'Founder' | 'Company (where incorporated)' | ''
+  capacity: string
+}
+
+/**
+ * Signatories are not independently captured. The agreement is signed by
+ * every founder and, once incorporated, by the company through the authorised
+ * signatory recorded in the Company Snapshot.
+ */
+export function deriveFounderAgreementSignatories(
+  founders: FAFounder[],
+  isIncorporated: FounderAgreementWizardData['isIncorporated'],
+  companySignatory: { name: string; capacity: string },
+): FASignatory[] {
+  const founderSignatories = founders
+    .filter((founder) => founder.fullNames.trim())
+    .map((founder) => ({
+      id: `founder-${founder.id}`,
+      name: founder.fullNames.trim(),
+      capacity: 'Founder — personal capacity',
+    }))
+
+  if (isIncorporated !== 'Yes') return founderSignatories
+
+  return [
+    ...founderSignatories,
+    {
+      id: 'company-authorised-signatory',
+      name: companySignatory.name.trim(),
+      capacity: companySignatory.capacity.trim()
+        ? `Company — ${companySignatory.capacity.trim()}`
+        : '',
+    },
+  ]
 }
 
 /* ─── Main data shape ────────────────────────────────────── */
@@ -186,10 +218,6 @@ export const makePriorIp = (id: string): FAPriorIp => ({
 export const makeDigitalAsset = (id: string): FADigitalAsset => ({
   id, asset: '', currentHolder: '', transferDate: '',
 })
-export const makeSignatory = (id: string): FASignatory => ({
-  id, name: '', capacity: '',
-})
-
 export const FA_EMPTY_DATA: FounderAgreementWizardData = {
   isIncorporated: 'Yes',
   companyName: '',
@@ -231,7 +259,7 @@ export const FA_EMPTY_DATA: FounderAgreementWizardData = {
   deadlock: 'Mediation then arbitration',
   disputeForum: 'Arbitration under AFSA rules',
   governingLaw: 'South African law',
-  signatories: [makeSignatory('s1')],
+  signatories: [],
 }
 
 const LOCAL_KEY = 'tsl-founder-agreement-wizard-state'
@@ -255,9 +283,7 @@ function draftToState(draft: WizardDraft<FounderAgreementWizardData>): FounderAg
     digitalAssets: Array.isArray(raw.digitalAssets) ? raw.digitalAssets : [],
     reservedMatters: Array.isArray(raw.reservedMatters) ? raw.reservedMatters : [],
     goodLeaver: Array.isArray(raw.goodLeaver) ? raw.goodLeaver : [],
-    signatories: Array.isArray(raw.signatories) && raw.signatories.length >= 1
-      ? raw.signatories
-      : FA_EMPTY_DATA.signatories,
+    signatories: Array.isArray(raw.signatories) ? raw.signatories : FA_EMPTY_DATA.signatories,
   }
   const status: FounderAgreementWizardStatus = draft.completedAt ? 'completed' : draft.status as FounderAgreementWizardStatus
   return {
