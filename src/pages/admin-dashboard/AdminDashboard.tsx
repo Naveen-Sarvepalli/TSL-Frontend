@@ -406,12 +406,14 @@ export default function AdminDashboard() {
             .slice(0, 3)
             .map((w) => w[0].toUpperCase())
             .join('')
+          const rawStatus = String(member.status || member.availability || 'available').toLowerCase()
+          const status = rawStatus === 'available' ? 'Available' : 'Not Available'
           return {
             initials,
             name,
             expertise: String(member.expertise || member.specialty || 'General Legal Counsel'),
             experience: String(member.experience || '5 years exp'),
-            status: String(member.status || member.availability || 'Available'),
+            status,
             location: String(member.location || ''),
             email: String(member.email || '').toLowerCase(),
             phone: String(member.phone || ''),
@@ -486,12 +488,14 @@ export default function AdminDashboard() {
             .slice(0, 3)
             .map((w) => w[0].toUpperCase())
             .join('')
+          const rawStatus = String(member.status || member.availability || 'available').toLowerCase()
+          const status = rawStatus === 'available' ? 'Available' : 'Not Available'
           return {
             initials,
             name,
             expertise: String(member.expertise || member.specialty || 'General Legal Counsel'),
             experience: String(member.experience || '5 years exp'),
-            status: String(member.status || member.availability || 'Available'),
+            status,
             location: String(member.location || ''),
             email: String(member.email || '').toLowerCase(),
             phone: String(member.phone || ''),
