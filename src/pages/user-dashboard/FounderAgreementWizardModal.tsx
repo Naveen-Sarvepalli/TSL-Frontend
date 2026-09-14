@@ -7,17 +7,16 @@ import { mapFounderAgreementFields, type FounderAgreementFieldMap } from '../../
 import {
   calcEquityTotal,
   calcFounderAgreementProgress,
+  deriveFounderAgreementSignatories,
   equityValid,
   FA_EMPTY_DATA,
   FA_TOTAL_CHECKS,
   makeDigitalAsset,
   makeFounder,
   makePriorIp,
-  makeSignatory,
   type FADigitalAsset,
   type FAFounder,
   type FAPriorIp,
-  type FASignatory,
   type FounderAgreementWizardData,
 } from '../../hooks/useFounderAgreementWizard'
 import './NdaWizardModal.css'
@@ -482,63 +481,6 @@ function DigitalAssetRow({ item, index, canRemove, onChange, onRemove }: {
   )
 }
 
-/* ─── Repeating row: Signatory ───────────────────────────── */
-function validateSignatoryField(key: string, value: string): string {
-  if (key === 'name') {
-    if (!value.trim()) return 'Name is required.'
-    if (/\d/.test(value)) return 'Name must not contain numbers.'
-    return ''
-  }
-  if (key === 'capacity') return value.trim() ? '' : 'Signing capacity is required.'
-  return ''
-}
-
-function SignatoryRow({ sig, index, canRemove, onChange, onRemove, submitErrors, disabled }: {
-  sig: FASignatory; index: number; canRemove: boolean
-  onChange: (f: FASignatory) => void; onRemove: () => void
-  submitErrors?: Record<string, string>; disabled?: boolean
-}) {
-  const [liveErrors, setLiveErrors] = useState<Record<string, string>>({})
-  const labelStyle: React.CSSProperties = { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }
-
-  const up = <K extends keyof FASignatory>(key: K, val: FASignatory[K]) => {
-    onChange({ ...sig, [key]: val })
-    const err = validateSignatoryField(key as string, val as string)
-    setLiveErrors(prev => ({ ...prev, [key as string]: err }))
-  }
-
-  const err = { ...(submitErrors ?? {}), ...liveErrors }
-  return (
-    <div className="nda-modal__repeat-card">
-      <div className="nda-modal__repeat-grid" style={{ gridTemplateColumns: '1fr 1fr auto', alignItems: 'start' }}>
-        <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={labelStyle}>Name <span className="nda-modal__required">*</span></label>
-          <input className={`nda-modal__input${err.name ? ' nda-modal__input--error' : ''}`} type="text" placeholder="Full name"
-            value={sig.name} onChange={e => up('name', e.target.value)} disabled={disabled} />
-          {err.name && <p className="nda-modal__field-error">{err.name}</p>}
-        </div>
-        <div className="nda-modal__form-group">
-          <label className="nda-modal__label" style={labelStyle}>Signing as <span className="nda-modal__required">*</span></label>
-          <select className={`nda-modal__input${err.capacity ? ' nda-modal__input--error' : ''}`} value={sig.capacity}
-            onChange={e => up('capacity', e.target.value as FASignatory['capacity'])} disabled={disabled}>
-            <option value="">Select…</option>
-            <option>Founder</option>
-            <option>Company (where incorporated)</option>
-          </select>
-          {err.capacity && <p className="nda-modal__field-error">{err.capacity}</p>}
-        </div>
-        {canRemove && (
-          <button type="button" className="nda-modal__row-remove" aria-label={`Remove signatory ${index + 1}`}
-            style={{ marginTop: 22 }} onClick={onRemove} disabled={disabled}>
-            <X size={14} />
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/* ─── Add row button ─────────────────────────────────────── */
 function AddRowBtn({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button type="button" className="nda-modal__add-row" onClick={onClick} disabled={disabled}>
@@ -563,6 +505,17 @@ const fmtDate = (v: string | undefined | null) => {
   if (!v) return '—'
   const d = new Date(v)
   return Number.isNaN(d.getTime()) ? v : d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function sameSignatories(
+  first: FounderAgreementWizardData['signatories'],
+  second: FounderAgreementWizardData['signatories'],
+) {
+  return first.length === second.length && first.every((signatory, index) => (
+    signatory.id === second[index]?.id
+    && signatory.name === second[index]?.name
+    && signatory.capacity === second[index]?.capacity
+  ))
 }
 
 export default function FounderAgreementWizardModal({
@@ -595,6 +548,15 @@ export default function FounderAgreementWizardModal({
   const [isGenerating, setIsGenerating] = useState(false)
   const [isRoutingToCounsel, setIsRoutingToCounsel] = useState(false)
   const [counselToast, setCounselToast] = useState(false)
+  const derivedSignatories = deriveFounderAgreementSignatories(
+    data.founders,
+    data.isIncorporated,
+    { name: profile.signatoryName, capacity: profile.signatoryCapacity },
+  )
+  const dataWithDerivedSignatories: FounderAgreementWizardData = {
+    ...data,
+    signatories: derivedSignatories,
+  }
   // Remembers the last approved review so toggling Yes → No → Yes restores it
   // instead of firing a brand-new counsel round-trip.
   const lastApprovedReviewRef = useRef<{
@@ -617,6 +579,18 @@ export default function FounderAgreementWizardModal({
   useEffect(() => {
     onStepChangeRef.current?.(step, data)
   }, [data, step])
+  useEffect(() => {
+    setData((previous) => {
+      const signatories = deriveFounderAgreementSignatories(
+        previous.founders,
+        previous.isIncorporated,
+        { name: profile.signatoryName, capacity: profile.signatoryCapacity },
+      )
+      return sameSignatories(previous.signatories, signatories)
+        ? previous
+        : { ...previous, signatories }
+    })
+  }, [data.founders, data.isIncorporated, profile.signatoryCapacity, profile.signatoryName])
   const isPublicFundingBlocked = data.publiclyFunded === 'Yes' && data.publicFundingReviewStatus !== 'approved'
   const ipSectionLocked = data.publiclyFunded === 'Yes' && (data.publicFundingReviewStatus === 'pending' || data.publicFundingReviewStatus === 'rejected')
   const goTo = (target: Step) => {
@@ -672,13 +646,6 @@ export default function FounderAgreementWizardModal({
   const addDigitalAsset = () => setData(prev => ({ ...prev, digitalAssets: [...prev.digitalAssets, makeDigitalAsset(`da${Date.now()}`)] }))
   const removeDigitalAsset = (idx: number) =>
     setData(prev => ({ ...prev, digitalAssets: prev.digitalAssets.filter((_, i) => i !== idx) }))
-
-  /* ── Signatory mutations ── */
-  const updateSignatory = (idx: number, sig: FASignatory) =>
-    setData(prev => ({ ...prev, signatories: prev.signatories.map((x, i) => i === idx ? sig : x) }))
-  const addSignatory = () => setData(prev => ({ ...prev, signatories: [...prev.signatories, makeSignatory(`s${Date.now()}`)] }))
-  const removeSignatory = (idx: number) =>
-    setData(prev => prev.signatories.length <= 1 ? prev : { ...prev, signatories: prev.signatories.filter((_, i) => i !== idx) })
 
   /* ── Validation ── */
   const validate = (s: Step): boolean => {
@@ -751,14 +718,14 @@ export default function FounderAgreementWizardModal({
       if (data.restraint === 'Yes' && !(data.restraintMonths && parseInt(data.restraintMonths) > 0)) {
         e.restraintMonths = 'Enter a valid restraint duration.'; valid = false
       }
-      if (!data.signatories.some(sig => sig.name.trim())) { e.signatories = 'Add at least one signatory.'; valid = false }
-      data.signatories.forEach((sig, i) => {
-        const fields = ['name', 'capacity'] as const
-        fields.forEach(key => {
-          const fieldErr = validateSignatoryField(key, sig[key] as string)
-          if (fieldErr) { e[`signatory_${i}_${key}`] = fieldErr; valid = false }
-        })
-      })
+      if (!derivedSignatories.length) {
+        e.signatories = 'Complete the Founders & Equity screen so each founder can be added as a signatory.'
+        valid = false
+      }
+      if (data.isIncorporated === 'Yes' && (!profile.signatoryName.trim() || !profile.signatoryCapacity.trim())) {
+        e.signatories = "Add the authorised signatory's full name and capacity in Company Snapshot before generating this agreement."
+        valid = false
+      }
     }
 
     setErrors(e)
@@ -780,7 +747,7 @@ export default function FounderAgreementWizardModal({
       void routeToCounsel()
       return
     }
-    onStepChange?.(step, data)
+    onStepChange?.(step, dataWithDerivedSignatories)
     if (step === 6) { setIsPreview(true); return }
     if (step < 6) setStep(s => (s + 1) as Step)
   }
@@ -792,13 +759,13 @@ export default function FounderAgreementWizardModal({
   const handleGenerate = () => {
     if (!isComplete || (data.publiclyFunded === 'Yes' && data.publicFundingReviewStatus !== 'approved')) return
     setIsGenerating(true)
-    setTimeout(() => { setIsGenerating(false); onComplete?.(data); onClose() }, 2000)
+    setTimeout(() => { setIsGenerating(false); onComplete?.(dataWithDerivedSignatories); onClose() }, 2000)
   }
 
   const routeToCounsel = async () => {
     if (!onRouteToCounsel || isRoutingToCounsel) return
     setIsRoutingToCounsel(true)
-    const review = await onRouteToCounsel(mapFounderAgreementFields(data, profile), step, data)
+    const review = await onRouteToCounsel(mapFounderAgreementFields(dataWithDerivedSignatories, profile), step, dataWithDerivedSignatories)
     if (review) {
       setData((previous) => ({
         ...previous,
@@ -1290,17 +1257,24 @@ export default function FounderAgreementWizardModal({
                   </div>
 
                   <Field label="Signatories" required
-                    hint="Every founder signs. The company signs too, where incorporated."
+                    hint="Every founder signs in a personal capacity. Where the company is incorporated, its authorised signatory is added from the Company Snapshot."
                     error={errors.signatories}>
                     <div className="nda-modal__repeat-list">
-                      {data.signatories.map((sig, i) => (
-                        <SignatoryRow key={sig.id} sig={sig} index={i} canRemove={data.signatories.length > 1}
-                          onChange={updated => updateSignatory(i, updated)} onRemove={() => removeSignatory(i)}
-                          submitErrors={Object.fromEntries(Object.entries(errors).filter(([k]) => k.startsWith(`signatory_${i}_`)).map(([k, v]) => [k.replace(`signatory_${i}_`, ''), v]))}
-                          disabled={ipSectionLocked} />
+                      {derivedSignatories.map((sig) => (
+                        <div key={sig.id} className="nda-modal__repeat-card">
+                          <div className="nda-modal__repeat-grid" style={{ gridTemplateColumns: '1fr 1fr', alignItems: 'start' }}>
+                            <div className="nda-modal__form-group">
+                              <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Name</label>
+                              <input className="nda-modal__input" type="text" value={sig.name} readOnly aria-readonly="true" />
+                            </div>
+                            <div className="nda-modal__form-group">
+                              <label className="nda-modal__label" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#888' }}>Signing as</label>
+                              <input className="nda-modal__input" type="text" value={sig.capacity} readOnly aria-readonly="true" />
+                            </div>
+                          </div>
+                        </div>
                       ))}
                     </div>
-                    <AddRowBtn label="+ Add a signatory" onClick={addSignatory} disabled={ipSectionLocked} />
                   </Field>
                 </div>
               )}
