@@ -353,6 +353,7 @@ export default function AdminDashboard() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [inviteToast, setInviteToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const [isAddCounselModalOpen, setIsAddCounselModalOpen] = useState(false)
+  const [unavailableWarnCounsel, setUnavailableWarnCounsel] = useState<CounselMember | null>(null)
   const [counselList, setCounselList] = useState<CounselMember[]>(counselMembers)
   const [adminRole, setAdminRole] = useState<string | null>(null)
   const [adminJoinedAt, setAdminJoinedAt] = useState<string>('2025-12-01')
@@ -680,10 +681,16 @@ export default function AdminDashboard() {
     setFilterAvailability('All Availability')
   }
 
-  const assignToCounsel = async () => {
+  const assignToCounsel = async (force = false) => {
     if (!activeRequest) return
 
     const selectedMember = assignableCounselMembers.find((member) => member.email === selectedCounsel)
+
+    // If the selected counsel is not available, show a warning modal first
+    if (!force && selectedMember?.status === 'Not Available') {
+      setUnavailableWarnCounsel(selectedMember)
+      return
+    }
 
     // Resolve the admin's display name: prefer loaded profile, fall back to localStorage auth user
     const adminFullName = (() => {
@@ -1807,7 +1814,7 @@ export default function AdminDashboard() {
                     >
                       <option>All Availability</option>
                       <option>Available</option>
-                      <option>Busy</option>
+                      <option>Not Available</option>
                     </select>
                   </div>
 
@@ -1862,7 +1869,7 @@ export default function AdminDashboard() {
                   <button type="button" className="admin-assignment__secondary admin-assignment__secondary--outlined" onClick={() => setAssignmentStep('preview')}>
                     <ArrowLeft size={17} /> Previous
                   </button>
-                  <button type="button" className="admin-assignment__primary" onClick={assignToCounsel}>
+                  <button type="button" className="admin-assignment__primary" onClick={() => assignToCounsel()}>
                     Assign to Counsel
                   </button>
                 </footer>
@@ -1922,6 +1929,49 @@ export default function AdminDashboard() {
         />
       </div>
     )}
+    {/* ── Unavailable Counsel Warning Modal ───────────────────────────── */}
+    {unavailableWarnCounsel && (
+      <div
+        className="admin-profile__dialog-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="unavailable-warn-title"
+        onClick={() => setUnavailableWarnCounsel(null)}
+      >
+        <div
+          className="admin-profile__dialog"
+          onClick={(e) => e.stopPropagation()}
+          style={{ maxWidth: '420px' }}
+        >
+          <h3 id="unavailable-warn-title" className="admin-profile__dialog-title">
+            Counsel Not Available
+          </h3>
+          <p className="admin-profile__dialog-desc">
+            <strong>{unavailableWarnCounsel.name}</strong> is currently not available and may not be able to take on new requests. Are you sure you want to assign this request to them?
+          </p>
+          <div className="admin-profile__dialog-actions">
+            <button
+              type="button"
+              className="admin-profile__dialog-cancel"
+              onClick={() => setUnavailableWarnCounsel(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="admin-profile__dialog-confirm"
+              onClick={() => {
+                setUnavailableWarnCounsel(null)
+                void assignToCounsel(true)
+              }}
+            >
+              Assign Anyway
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <LogoutConfirmModal
       isOpen={logoutModalOpen}
       onClose={() => setLogoutModalOpen(false)}
