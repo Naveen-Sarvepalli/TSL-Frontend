@@ -153,13 +153,13 @@ export default function CounselTopUpPayment() {
 
     setIsPaying(false)
 
-    if (credits) {
-      const updatedCredits: CounselCredits = {
-        ...credits,
-        creditsRemaining: credits.creditsRemaining + qty,
-      }
-      sessionStorage.setItem('tsl-counsel-credits-session', JSON.stringify(updatedCredits))
-    }
+    // Store the balance confirmed by the payment server. This avoids displaying
+    // the pre-payment balance while the Counsel dashboard is remounting.
+    try {
+      const updatedCredits = verification.data?.counselCredits
+      if (updatedCredits) sessionStorage.setItem('tsl-counsel-credits-session', JSON.stringify(updatedCredits))
+      else sessionStorage.removeItem('tsl-counsel-credits-session')
+    } catch { /* storage unavailable */ }
 
     // Build and persist the top-up invoice so it appears in Billing History
     const invoice = buildTopUpInvoice(result.reference, plan!, qty, total)
