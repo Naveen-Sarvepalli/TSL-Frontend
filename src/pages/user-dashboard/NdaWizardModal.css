@@ -918,7 +918,12 @@
 
 .nda-modal__repeat-grid--purpose {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
+}
+
+.nda-modal__repeat-grid--cookie {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr) auto;
+  align-items: start;
 }
 
 .nda-modal__repeat-grid--four {

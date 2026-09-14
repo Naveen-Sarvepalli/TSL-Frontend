@@ -446,6 +446,9 @@ function validateScreen(step: Step, data: PrivacyPolicyWizardData): PrivacyError
       if (!hasText(row.purpose)) errors[`cookie.${index}.purpose`] = 'Enter a purpose.'
       if (!hasText(row.duration)) errors[`cookie.${index}.duration`] = 'Enter a duration.'
     })
+    if (hasText(data.analyticsProvider) && !/^[a-zA-Z0-9\s\-_.()&]+$/.test(data.analyticsProvider.trim())) {
+      errors.analyticsProvider = 'Only letters, numbers, spaces and basic punctuation are allowed.'
+    }
   }
 
   if (step === 6) {
@@ -804,11 +807,11 @@ export default function PrivacyPolicyWizardModal({
                           return (
                             <div key={`purpose-${index}`} className="nda-modal__repeat-card">
                               <div className="nda-modal__repeat-grid nda-modal__repeat-grid--purpose">
-                                <div style={{ alignSelf: 'end' }}>
+                                <div style={{ paddingTop: '25px' }}>
                                   <TextInput value={row.purpose} onChange={(value) => updatePurpose(index, { purpose: value })} placeholder="e.g. Processing customer orders" error={Boolean(errors[`purpose.${index}.purpose`])} />
                                   {errors[`purpose.${index}.purpose`] && <p className="nda-modal__field-error">{errors[`purpose.${index}.purpose`]}</p>}
                                 </div>
-                                <div style={{ alignSelf: 'end' }}>
+                                <div style={{ paddingTop: '25px' }}>
                                   <TextInput value={row.categories} onChange={(value) => updatePurpose(index, { categories: value })} placeholder="e.g. Identity, Contact" error={Boolean(errors[`purpose.${index}.categories`])} />
                                   {errors[`purpose.${index}.categories`] && <p className="nda-modal__field-error">{errors[`purpose.${index}.categories`]}</p>}
                                 </div>
@@ -817,7 +820,7 @@ export default function PrivacyPolicyWizardModal({
                                   <SelectInput value={row.basis} onChange={(value) => updatePurpose(index, { basis: value as PrivacyPurposeRow['basis'], liStatement: value === 'Legitimate interest' ? row.liStatement : '' })} options={PRIVACY_BASIS_OPTIONS} placeholder="Select" error={Boolean(errors[`purpose.${index}.basis`])} />
                                   {errors[`purpose.${index}.basis`] && <p className="nda-modal__field-error">{errors[`purpose.${index}.basis`]}</p>}
                                 </div>
-                                <button type="button" className="nda-modal__row-remove" style={{ alignSelf: 'end', marginBottom: '13px' }} onClick={() => set('purposes', data.purposes.length > 1 ? data.purposes.filter((_, currentIndex) => currentIndex !== index) : [createEmptyPurpose()])} aria-label="Remove purpose">
+                                <button type="button" className="nda-modal__row-remove" style={{ marginTop: '30px' }} onClick={() => set('purposes', data.purposes.length > 1 ? data.purposes.filter((_, currentIndex) => currentIndex !== index) : [createEmptyPurpose()])} aria-label="Remove purpose">
                                   <X size={16} />
                                 </button>
                               </div>
@@ -858,7 +861,7 @@ export default function PrivacyPolicyWizardModal({
                                   <TextInput value={row.reason} onChange={(value) => updateRetention(index, { reason: value })} placeholder="e.g. Statutory retention requirement" error={Boolean(errors[`retention.${index}.reason`])} />
                                   {errors[`retention.${index}.reason`] && <p className="nda-modal__field-error">{errors[`retention.${index}.reason`]}</p>}
                                 </div>
-                                <button type="button" className="nda-modal__row-remove" style={{ alignSelf: 'end', marginBottom: '13px' }} onClick={() => set('retention', data.retention.length > 1 ? data.retention.filter((_, currentIndex) => currentIndex !== index) : [createEmptyRetention()])} aria-label="Remove retention entry">
+                                <button type="button" className="nda-modal__row-remove" style={{ marginTop: '5px' }} onClick={() => set('retention', data.retention.length > 1 ? data.retention.filter((_, currentIndex) => currentIndex !== index) : [createEmptyRetention()])} aria-label="Remove retention entry">
                                   <X size={16} />
                                 </button>
                               </div>
@@ -887,7 +890,7 @@ export default function PrivacyPolicyWizardModal({
                           const isExtraTp = tpEmpty && data.thirdParties.length > 1
                           return (
                             <div key={`third-party-${index}`} className="nda-modal__repeat-card">
-                              <div className="nda-modal__repeat-grid nda-modal__repeat-grid--three">
+                              <div className="nda-modal__repeat-grid nda-modal__repeat-grid--purpose">
                                 <div>
                                   <TextInput value={row.name} onChange={(value) => updateThirdParty(index, { name: value })} placeholder="e.g. Payment processor" error={Boolean(errors[`thirdParty.${index}.name`])} />
                                   {errors[`thirdParty.${index}.name`] && <p className="nda-modal__field-error">{errors[`thirdParty.${index}.name`]}</p>}
@@ -900,13 +903,13 @@ export default function PrivacyPolicyWizardModal({
                                   <TextInput value={row.country} onChange={(value) => updateThirdParty(index, { country: value })} placeholder="e.g. South Africa" error={Boolean(errors[`thirdParty.${index}.country`])} />
                                   {errors[`thirdParty.${index}.country`] && <p className="nda-modal__field-error">{errors[`thirdParty.${index}.country`]}</p>}
                                 </div>
+                                <button type="button" className="nda-modal__row-remove" style={{ marginTop: '5px' }} onClick={() => set('thirdParties', data.thirdParties.length > 1 ? data.thirdParties.filter((_, currentIndex) => currentIndex !== index) : [createEmptyThirdParty()])} aria-label="Remove third party">
+                                  <X size={16} />
+                                </button>
                               </div>
                               {isExtraTp && (
                                 <p className="nda-modal__field-error">Fill in this entry or remove it using the ✕ button.</p>
                               )}
-                              <button type="button" className="nda-modal__row-remove nda-modal__row-remove--card" onClick={() => set('thirdParties', data.thirdParties.length > 1 ? data.thirdParties.filter((_, currentIndex) => currentIndex !== index) : [createEmptyThirdParty()])} aria-label="Remove third party">
-                                <X size={16} />
-                              </button>
                             </div>
                           )
                         })}
@@ -974,7 +977,7 @@ export default function PrivacyPolicyWizardModal({
                           const isExtraCookie = cookieEmpty && data.cookies.length > 1
                           return (
                             <div key={`cookie-${index}`} className="nda-modal__repeat-card">
-                              <div className="nda-modal__repeat-grid nda-modal__repeat-grid--four">
+                              <div className="nda-modal__repeat-grid nda-modal__repeat-grid--cookie">
                                 <div>
                                   <TextInput value={row.name} onChange={(value) => updateCookie(index, { name: value })} placeholder="e.g. _ga" error={Boolean(errors[`cookie.${index}.name`])} />
                                   {errors[`cookie.${index}.name`] && <p className="nda-modal__field-error">{errors[`cookie.${index}.name`]}</p>}
@@ -991,13 +994,13 @@ export default function PrivacyPolicyWizardModal({
                                   <option value="No">No</option>
                                   <option value="Yes">Yes</option>
                                 </select>
+                                <button type="button" className="nda-modal__row-remove" style={{ marginTop: '5px' }} onClick={() => set('cookies', data.cookies.length > 1 ? data.cookies.filter((_, currentIndex) => currentIndex !== index) : [createEmptyCookie()])} aria-label="Remove cookie">
+                                  <X size={16} />
+                                </button>
                               </div>
                               {isExtraCookie && (
                                 <p className="nda-modal__field-error">Fill in this entry or remove it using the ✕ button.</p>
                               )}
-                              <button type="button" className="nda-modal__row-remove nda-modal__row-remove--card" onClick={() => set('cookies', data.cookies.length > 1 ? data.cookies.filter((_, currentIndex) => currentIndex !== index) : [createEmptyCookie()])} aria-label="Remove cookie">
-                                <X size={16} />
-                              </button>
                             </div>
                           )
                         })}
@@ -1014,8 +1017,8 @@ export default function PrivacyPolicyWizardModal({
                         </select>
                         <p className="nda-modal__field-hint">Implied consent is not offered for non-essential cookies.</p>
                       </FormGroup>
-                      <FormGroup label="Analytics provider" optional>
-                        <TextInput value={data.analyticsProvider} onChange={(value) => set('analyticsProvider', value)} placeholder="e.g. Google Analytics" />
+                      <FormGroup label="Analytics provider" optional error={errors.analyticsProvider}>
+                        <TextInput value={data.analyticsProvider} onChange={(value) => set('analyticsProvider', value)} placeholder="e.g. Google Analytics" error={Boolean(errors.analyticsProvider)} />
                       </FormGroup>
                     </div>
                   </section>
