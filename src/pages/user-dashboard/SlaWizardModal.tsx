@@ -1123,18 +1123,22 @@ export default function SlaWizardModal({
                   {data.provider.entityType && data.provider.entityType !== 'Individual' && data.provider.regNumber && (
                     <PF label="Provider Reg" value={data.provider.regNumber} />
                   )}
-                  {data.provider.entityType && data.provider.entityType !== 'Individual' && (
+                  {data.provider.entityType && data.provider.entityType !== 'Individual' && data.provider.signatoryName && (
                     <PF label="Provider Signatory" value={`${data.provider.signatoryName}${data.provider.signatoryCapacity ? ` (${data.provider.signatoryCapacity})` : ''}`} />
                   )}
-                  <PF label="Provider Email" value={data.provider.email} />
+                  {(data.provider.email) && (
+                    <PF label="Provider Email" value={data.provider.email} />
+                  )}
                   <PF label="Customer" value={data.customer.legalName || data.customer.fullNames || data.customerName} />
                   {data.customer.entityType && data.customer.entityType !== 'Individual' && data.customer.regNumber && (
                     <PF label="Customer Reg" value={data.customer.regNumber} />
                   )}
-                  {data.customer.entityType && data.customer.entityType !== 'Individual' && (
+                  {data.customer.entityType && data.customer.entityType !== 'Individual' && data.customer.signatoryName && (
                     <PF label="Customer Signatory" value={`${data.customer.signatoryName}${data.customer.signatoryCapacity ? ` (${data.customer.signatoryCapacity})` : ''}`} />
                   )}
-                  <PF label="Customer Email" value={data.customer.email} />
+                  {(data.customer.email) && (
+                    <PF label="Customer Email" value={data.customer.email} />
+                  )}
                   <PF label="Service Description" value={data.serviceDescription} />
                   <PF label="Start Date" value={data.startDate} />
                   <PF label="Term" value={data.termType + (data.endDate ? ` — ${data.endDate}` : '')} />
