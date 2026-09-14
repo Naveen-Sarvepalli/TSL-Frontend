@@ -803,19 +803,23 @@ export default function PrivacyPolicyWizardModal({
                           const isExtraPurpose = purposeEmpty && data.purposes.length > 1
                           return (
                             <div key={`purpose-${index}`} className="nda-modal__repeat-card">
-                              <div className="nda-modal__repeat-grid nda-modal__repeat-grid--three">
-                                <div>
+                              <div className="nda-modal__repeat-grid nda-modal__repeat-grid--purpose">
+                                <div style={{ alignSelf: 'end' }}>
                                   <TextInput value={row.purpose} onChange={(value) => updatePurpose(index, { purpose: value })} placeholder="e.g. Processing customer orders" error={Boolean(errors[`purpose.${index}.purpose`])} />
                                   {errors[`purpose.${index}.purpose`] && <p className="nda-modal__field-error">{errors[`purpose.${index}.purpose`]}</p>}
                                 </div>
-                                <div>
+                                <div style={{ alignSelf: 'end' }}>
                                   <TextInput value={row.categories} onChange={(value) => updatePurpose(index, { categories: value })} placeholder="e.g. Identity, Contact" error={Boolean(errors[`purpose.${index}.categories`])} />
                                   {errors[`purpose.${index}.categories`] && <p className="nda-modal__field-error">{errors[`purpose.${index}.categories`]}</p>}
                                 </div>
                                 <div>
-                                  <SelectInput value={row.basis} onChange={(value) => updatePurpose(index, { basis: value as PrivacyPurposeRow['basis'], liStatement: value === 'Legitimate interest' ? row.liStatement : '' })} options={PRIVACY_BASIS_OPTIONS} placeholder="Lawful basis" error={Boolean(errors[`purpose.${index}.basis`])} />
+                                  <p className="nda-modal__field-label">Lawful basis</p>
+                                  <SelectInput value={row.basis} onChange={(value) => updatePurpose(index, { basis: value as PrivacyPurposeRow['basis'], liStatement: value === 'Legitimate interest' ? row.liStatement : '' })} options={PRIVACY_BASIS_OPTIONS} placeholder="Select" error={Boolean(errors[`purpose.${index}.basis`])} />
                                   {errors[`purpose.${index}.basis`] && <p className="nda-modal__field-error">{errors[`purpose.${index}.basis`]}</p>}
                                 </div>
+                                <button type="button" className="nda-modal__row-remove" style={{ alignSelf: 'end', marginBottom: '13px' }} onClick={() => set('purposes', data.purposes.length > 1 ? data.purposes.filter((_, currentIndex) => currentIndex !== index) : [createEmptyPurpose()])} aria-label="Remove purpose">
+                                  <X size={16} />
+                                </button>
                               </div>
                               {row.basis === 'Legitimate interest' && (
                                 <div className="nda-modal__repeat-full">
@@ -826,9 +830,6 @@ export default function PrivacyPolicyWizardModal({
                               {isExtraPurpose && (
                                 <p className="nda-modal__field-error">Fill in this entry or remove it using the ✕ button.</p>
                               )}
-                              <button type="button" className="nda-modal__row-remove nda-modal__row-remove--card" onClick={() => set('purposes', data.purposes.length > 1 ? data.purposes.filter((_, currentIndex) => currentIndex !== index) : [createEmptyPurpose()])} aria-label="Remove purpose">
-                                <X size={16} />
-                              </button>
                             </div>
                           )
                         })}
@@ -844,7 +845,7 @@ export default function PrivacyPolicyWizardModal({
                           const isExtraRetention = retentionEmpty && data.retention.length > 1
                           return (
                             <div key={`retention-${index}`} className="nda-modal__repeat-card">
-                              <div className="nda-modal__repeat-grid nda-modal__repeat-grid--three">
+                              <div className="nda-modal__repeat-grid nda-modal__repeat-grid--purpose">
                                 <div>
                                   <TextInput value={row.category} onChange={(value) => updateRetention(index, { category: value })} placeholder="e.g. Customer records" error={Boolean(errors[`retention.${index}.category`])} />
                                   {errors[`retention.${index}.category`] && <p className="nda-modal__field-error">{errors[`retention.${index}.category`]}</p>}
@@ -857,13 +858,13 @@ export default function PrivacyPolicyWizardModal({
                                   <TextInput value={row.reason} onChange={(value) => updateRetention(index, { reason: value })} placeholder="e.g. Statutory retention requirement" error={Boolean(errors[`retention.${index}.reason`])} />
                                   {errors[`retention.${index}.reason`] && <p className="nda-modal__field-error">{errors[`retention.${index}.reason`]}</p>}
                                 </div>
+                                <button type="button" className="nda-modal__row-remove" style={{ alignSelf: 'end', marginBottom: '13px' }} onClick={() => set('retention', data.retention.length > 1 ? data.retention.filter((_, currentIndex) => currentIndex !== index) : [createEmptyRetention()])} aria-label="Remove retention entry">
+                                  <X size={16} />
+                                </button>
                               </div>
                               {isExtraRetention && (
                                 <p className="nda-modal__field-error">Fill in this entry or remove it using the ✕ button.</p>
                               )}
-                              <button type="button" className="nda-modal__row-remove nda-modal__row-remove--card" onClick={() => set('retention', data.retention.length > 1 ? data.retention.filter((_, currentIndex) => currentIndex !== index) : [createEmptyRetention()])} aria-label="Remove retention entry">
-                                <X size={16} />
-                              </button>
                             </div>
                           )
                         })}
