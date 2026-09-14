@@ -506,7 +506,7 @@ export function ContactSection() {
                           fontWeight: 600,
                           fontSize: '14px',
                           lineHeight: '20px',
-                        } : { fontWeight: 700, fontSize: '14px' }}
+                        } : { fontWeight: 600, fontSize: '14px' }}
                       >
                         {value}
                       </p>

@@ -105,7 +105,7 @@ export default function ResetPassword() {
         return
       }
       const data = response as unknown as { role?: Role }
-      navigate('/reset-success', { state: { role: data.role ?? tokenRole } })
+      navigate('/reset-success', { state: { role: data.role ?? tokenRole, email: tokenEmail } })
     } catch {
       setApiError('Cannot reach the server. Please confirm the mock server is running on port 8080.')
     } finally {

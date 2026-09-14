@@ -634,6 +634,48 @@ export default function AdminDashboard() {
     setActiveRequest(request)
     setAssignmentStep('preview')
     setSelectedCounsel(assignableCounselMembers[0]?.email ?? counselMembers[0].email)
+
+    // Re-fetch counsel statuses so the assign step always reflects the latest
+    // availability set in the counsel portal, without requiring a full page reload.
+    adminApi.counsel().then((response) => {
+      if (!response.success || !response.data) return
+      const data = response.data as { counsel?: Array<Record<string, unknown>> }
+      const members: CounselMember[] = (data.counsel ?? [])
+        .map((member) => {
+          const name = String(member.name || member.fullName || member.email || 'Counsel Member')
+          const initials = name
+            .replace(/^(Dr\.|Adv\.)\s*/i, '')
+            .split(' ')
+            .filter(Boolean)
+            .slice(0, 3)
+            .map((w) => w[0].toUpperCase())
+            .join('')
+          const rawStatus = String(member.status || member.availability || 'available').toLowerCase()
+          const status = rawStatus === 'available' ? 'Available' : 'Not Available'
+          return {
+            initials,
+            name,
+            expertise: String(member.expertise || member.specialty || 'General Legal Counsel'),
+            experience: String(member.experience || '5 years exp'),
+            status,
+            location: String(member.location || ''),
+            email: String(member.email || '').toLowerCase(),
+            phone: String(member.phone || ''),
+            completed: 0,
+          }
+        })
+        .filter((member) => member.email)
+      if (members.length > 0) {
+        setAssignableCounselMembers(members)
+        setCounselList((prev) => {
+          const emailToApiMember = new Map(members.map((m) => [m.email, m]))
+          return prev.map((m) => {
+            const live = emailToApiMember.get(m.email)
+            return live ? { ...m, status: live.status } : m
+          })
+        })
+      }
+    })
   }
 
   const handleDownloadAttachment = (file: File) => {

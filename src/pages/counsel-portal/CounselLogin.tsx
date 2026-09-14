@@ -1,17 +1,21 @@
 import { Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { authApi, saveAuthSession } from '../../services/tslApi'
 import './CounselLogin.css'
 
+type LoginLocationState = { email?: string } | null
+
 export default function CounselLogin() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const locationState = (location.state ?? null) as LoginLocationState
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({
-    email: 's.nkosi@tsl.co.za',
-    password: 'temporary',
+    email: locationState?.email ?? '',
+    password: '',
   })
 
   const submitLogin = async (event: React.FormEvent) => {
@@ -83,7 +87,7 @@ export default function CounselLogin() {
                 type="email"
                 value={formData.email}
                 onChange={(event) => setFormData({ ...formData, email: event.target.value })}
-                placeholder="s.nkosi@tsl.co.za"
+                placeholder="your@email.com"
               />
             </div>
           </label>
@@ -96,7 +100,7 @@ export default function CounselLogin() {
                 type={showPassword ? 'text' : 'password'}
                 value={formData.password}
                 onChange={(event) => setFormData({ ...formData, password: event.target.value })}
-                placeholder="Enter temporary password"
+                placeholder="Enter your password"
               />
               <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
                 {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}

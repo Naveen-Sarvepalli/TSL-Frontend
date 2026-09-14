@@ -69,7 +69,7 @@ function getStoredUserEmail() {
 }
 
 function fmtZAR(amount: number) {
-  return `R${amount.toLocaleString('en-ZA')}`
+  return `R${amount.toLocaleString('en-US')}`
 }
 
 export type CounselTopUpReturnState = {

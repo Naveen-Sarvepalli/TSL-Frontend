@@ -556,7 +556,7 @@ export default function DashboardCounsel() {
     }
   }
 
-  const topUpRate = `${credits.currency === 'ZAR' ? 'R' : `${credits.currency} `}${credits.topUpRate.toLocaleString('en-ZA')}`
+  const topUpRate = `${credits.currency === 'ZAR' ? 'R' : `${credits.currency} `}${credits.topUpRate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   return (
     <DashboardShell activeSection="Counsel">
