@@ -197,7 +197,6 @@ function getSlaScreenCompletion(data: SlaWizardData): boolean[] {
   // Legal & signing is the final wizard screen.
   screens.push(
     data.governingLaw.trim() !== '' && data.disputeForum !== '' &&
-    data.signatureMethod !== '' && data.signatureMethod != null &&
     data.signatories.length > 0 && data.signatories.every((s) => s.name.trim() !== '' && s.title.trim() !== ''),
   )
 
