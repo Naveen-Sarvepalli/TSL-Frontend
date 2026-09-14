@@ -303,10 +303,13 @@ export default function DashboardCounsel() {
     // Clear nav state immediately so a refresh won't re-show the toast.
     navigate('/dashboard/counsel', { replace: true, state: null })
 
-    // Re-fetch credits from the server so all counters reflect the new total
-    // immediately — no page reload needed.
+    // Session cache was cleared by the payment page — force a fresh server fetch
+    // so the displayed balance is always the authoritative post-top-up value.
     counselApi.credits().then((res) => {
-      if (res.success && res.data) setCredits(res.data)
+      if (res.success && res.data) {
+        setCredits(res.data)
+        writeSessionCredits(res.data)
+      }
     })
 
     const timer = setTimeout(() => setTopUpToast(''), 5000)
@@ -611,7 +614,13 @@ export default function DashboardCounsel() {
               </div>
               <h2>Usage This Month</h2>
               <p>
-                {credits.usageThisMonth} of {credits.includedCredits} included credits
+                {credits.includedCredits > 0 && credits.usageThisMonth > credits.includedCredits
+                  ? `${credits.includedCredits} included + ${credits.usageThisMonth - credits.includedCredits} top-up credit${credits.usageThisMonth - credits.includedCredits !== 1 ? 's' : ''} used`
+                  : credits.includedCredits > 0
+                    ? `${credits.usageThisMonth} of ${credits.includedCredits} included credits`
+                    : credits.usageThisMonth > 0
+                      ? 'All from top-up credits'
+                      : 'No credits used yet'}
               </p>
             </article>
           </section>

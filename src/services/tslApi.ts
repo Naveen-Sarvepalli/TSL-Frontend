@@ -342,6 +342,8 @@ export interface PaystackVerification {
   status: 'success' | 'failed' | 'cancelled'
   gatewayResponse: string
   paidAt?: string
+  /** Authoritative balance returned when a counsel top-up is applied. */
+  counselCredits?: CounselCredits | null
   /** Present on successful verification — real Paystack card authorization object */
   authorization?: PaystackCardAuthorization
 }

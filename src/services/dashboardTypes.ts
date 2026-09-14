@@ -45,6 +45,7 @@ export interface CounselCredits {
   creditsUsed: number
   creditsRemaining: number
   usageThisMonth: number
+  topUpCreditsRemaining?: number
   topUpRate: number
   currency: string
   resetDate: string
