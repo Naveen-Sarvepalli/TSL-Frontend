@@ -1167,6 +1167,22 @@
   transform: translateX(18px);
 }
 
+/* ── Accordion (toggle-reveal) ───────────────────────────── */
+.nda-modal__accordion {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.nda-modal__accordion--open {
+  grid-template-rows: 1fr;
+}
+
+.nda-modal__accordion-inner {
+  overflow: hidden;
+  padding-top: 2px;
+}
+
 /* ── Responsive additions ─────────────────────────────────── */
 @media (max-width: 560px) {
   .nda-modal__address-block .nda-modal__two-col {
