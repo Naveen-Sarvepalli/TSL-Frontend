@@ -538,7 +538,7 @@ function buildNdaPdf(data: import('./NdaWizardModal').NdaWizardData, completedAt
     '─────────────────────────────────────────',
     `Purpose      : ${data.purpose || '—'}`,
     `CI Definition: ${data.ci_definition || '—'}`,
-    `Must be marked: ${data.marking_required ? 'Yes' : 'No'}`,
+    `Information must be marked confidential: ${data.marking_required ? 'Yes' : 'No'}`,
     '',
     '─────────────────────────────────────────',
     '3. OBLIGATIONS',

@@ -112,7 +112,7 @@ export async function buildNdaDocx(data: NdaWizardData, completedAt: string | nu
     h2('2. Purpose & Scope'),
     row('Purpose', data.purpose),
     row('CI Definition', data.ci_definition),
-    row('Must be marked confidential', yn(data.marking_required)),
+    row('Information must be marked confidential', yn(data.marking_required)),
     sep(),
     h2('3. Obligations'),
     row('Duration', `${data.duration_years} years, from ${data.duration_start}`),

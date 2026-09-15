@@ -1149,7 +1149,7 @@ export default function NdaWizardModal({
                     <PreviewField label="Categories" value={data.ci_categories.join(', ')} />
                   )}
                   <PreviewField label="Standard exclusions" value={data.ci_exclusions.join(', ')} />
-                  <PreviewField label="Must be marked confidential" value={data.marking_required ? 'Yes' : 'No'} />
+                  <PreviewField label="Information must be marked confidential" value={data.marking_required ? 'Yes' : 'No'} />
                 </PreviewSection>
 
                 <PreviewSection num={3} title="Obligations" onEdit={() => goTo(3)}>
