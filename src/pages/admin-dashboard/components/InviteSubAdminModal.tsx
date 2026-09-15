@@ -105,7 +105,7 @@ export default function InviteSubAdminModal({ isOpen, onClose, onSendInvitation 
 
         <form className="invite-admin-modal__content" onSubmit={handleSubmit} noValidate>
           <div className="invite-admin-modal__field">
-            <label htmlFor="fullName">Full Name</label>
+            <label htmlFor="fullName">Full Name <span className="invite-admin-modal__required">*</span></label>
             <div className={`invite-admin-modal__input-wrapper${errors.fullName && touched.fullName ? ' invite-admin-modal__input-wrapper--error' : ''}`}>
               <User size={18} />
               <input
@@ -131,7 +131,7 @@ export default function InviteSubAdminModal({ isOpen, onClose, onSendInvitation 
           </div>
 
           <div className="invite-admin-modal__field">
-            <label htmlFor="email">Email Address</label>
+            <label htmlFor="email">Email Address <span className="invite-admin-modal__required">*</span></label>
             <div className={`invite-admin-modal__input-wrapper${errors.email && touched.email ? ' invite-admin-modal__input-wrapper--error' : ''}`}>
               <Mail size={18} />
               <input
