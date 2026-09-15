@@ -1,3 +1,4 @@
+import { LogoutConfirmModal } from '../../components/auth/LogoutConfirmModal'
 import { BackButton } from '../../components/dashboard/BackButton'
 import {
   AlertTriangle,
@@ -19,10 +20,10 @@ import {
   UsersRound,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useCounselAvailability } from '../../context/CounselAvailabilityContext'
-import { clearAuthSession, counselPortalApi } from '../../services/tslApi'
+import { counselPortalApi } from '../../services/tslApi'
 import './CounselPortal.css'
 
 type CounselMode = 'dashboard' | 'requests'
@@ -326,10 +327,9 @@ export default function CounselPortal({ mode }: { mode: CounselMode }) {
 
   const pendingCount = requests.filter((request) => request.status === 'pending').length
 
-  const signOut = () => {
-    clearAuthSession()
-    navigate('/')
-  }
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const openLogout  = useCallback(() => setShowLogoutModal(true),  [])
+  const closeLogout = useCallback(() => setShowLogoutModal(false), [])
 
   const setRequestStatus = async (requestId: string, status: RequestStatus, rejectionReason = 'Unavailable') => {
     const normStatus = normalizeStatus(status)
@@ -398,12 +398,14 @@ export default function CounselPortal({ mode }: { mode: CounselMode }) {
             <UsersRound size={16} />
             <span>Profile</span>
           </Link>
-          <button type="button" className="counsel-portal__nav-item" onClick={signOut}>
+          <button type="button" className="counsel-portal__nav-item" onClick={openLogout}>
             <LogOut size={16} />
             <span>Sign Out</span>
           </button>
         </div>
       </aside>
+
+      <LogoutConfirmModal isOpen={showLogoutModal} onClose={closeLogout} />
 
       <main className="counsel-portal__main">
         <header className="counsel-portal__header">
