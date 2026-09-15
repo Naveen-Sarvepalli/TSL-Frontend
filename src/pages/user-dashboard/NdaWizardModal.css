@@ -71,6 +71,7 @@
   padding-bottom: 0;
   overflow-x: auto;
   scrollbar-width: none;
+  scroll-behavior: smooth;
 }
 
 .nda-modal__steps::-webkit-scrollbar {
