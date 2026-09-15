@@ -725,7 +725,7 @@ export default function SlaWizardModal({
                   <h3 className="nda-modal__party-title">Availability</h3>
                   <p className="nda-modal__field-hint" style={{ marginBottom: 16 }}>The uptime commitment and how it is measured.</p>
 
-                  <div className="nda-modal__two-col" style={{ alignItems: 'end' }}>
+                  <div className="nda-modal__two-col" style={{ alignItems: 'start' }}>
                     <FormGroup label="Uptime target" required hint="Decimals allowed. Range 90 to 100." error={errors['uptimeTarget']}>
                       <TextInput value={data.uptimeTarget} onChange={(v) => set('uptimeTarget', v)}
                         placeholder="e.g. 99.5" type="number" min="90" max="100" step="0.01" />
