@@ -725,16 +725,22 @@ export default function SlaWizardModal({
                   <h3 className="nda-modal__party-title">Availability</h3>
                   <p className="nda-modal__field-hint" style={{ marginBottom: 16 }}>The uptime commitment and how it is measured.</p>
 
-                  <div className="nda-modal__two-col" style={{ alignItems: 'end' }}>
-                    <FormGroup label="Uptime target" required hint="Decimals allowed. Range 90 to 100." error={errors['uptimeTarget']}>
+                  <div className="sla-uptime-row">
+                    <div className="sla-uptime-row__col">
+                      <label className="nda-modal__label">Uptime target <span className="nda-modal__required"> *</span></label>
                       <TextInput value={data.uptimeTarget} onChange={(v) => set('uptimeTarget', v)}
-                        placeholder="e.g. 99.5" type="number" min="90" max="100" step="0.01" />
-                    </FormGroup>
-                    <FormGroup label="Measurement period" required>
+                        placeholder="e.g. 99.5" type="number" min="90" max="100" step="0.01"
+                        error={!!errors['uptimeTarget']} />
+                      {errors['uptimeTarget']
+                        ? <p className="nda-modal__field-error">{errors['uptimeTarget']}</p>
+                        : <p className="nda-modal__field-hint">Decimals allowed. Range 90 to 100.</p>}
+                    </div>
+                    <div className="sla-uptime-row__col">
+                      <label className="nda-modal__label">Measurement period <span className="nda-modal__required"> *</span></label>
                       <SelectInput value={data.uptimePeriod}
                         onChange={(v) => set('uptimePeriod', v as SlaWizardData['uptimePeriod'])}
                         options={['Monthly', 'Quarterly']} />
-                    </FormGroup>
+                    </div>
                   </div>
 
                   {uptimeHigh && (

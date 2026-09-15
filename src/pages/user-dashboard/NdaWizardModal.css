@@ -1172,6 +1172,20 @@
   transform: translateX(18px);
 }
 
+/* ── SLA Uptime row (label-aligned two-col) ──────────────── */
+.sla-uptime-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.sla-uptime-row__col {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 6px;
+}
+
 /* ── Accordion (toggle-reveal) ───────────────────────────── */
 .nda-modal__accordion {
   display: grid;

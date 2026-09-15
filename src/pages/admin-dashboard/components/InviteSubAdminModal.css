@@ -85,6 +85,11 @@
   line-height: 1.4;
 }
 
+.invite-admin-modal__required {
+  color: #c10007;
+  margin-left: 2px;
+}
+
 .invite-admin-modal__input-wrapper {
   position: relative;
   display: flex;
