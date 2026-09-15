@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowLeft, ArrowRight, Check, Eye, Loader2, Pencil, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   calcPrivacyPolicyProgress,
   createEmptyCookie,
@@ -86,14 +86,23 @@ const hasText = (value: string) => value.trim().length > 0
 const maskIdentityNumber = (value: string) => value.length === 13 ? `•••••••••${value.slice(-4)}` : ''
 
 function StepBar({ current, isPreview }: { current: Step; isPreview: boolean }) {
+  const stripRef = useRef<HTMLDivElement>(null)
+  const activeRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (activeRef.current && stripRef.current) {
+      activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+    }
+  }, [current, isPreview])
+
   return (
-    <div className="nda-modal__steps">
+    <div className="nda-modal__steps" ref={stripRef}>
       {STEPS.map((step, index) => {
         const num = (index + 1) as Step
         const done = isPreview || num < current
         const active = !isPreview && num === current
         return (
-          <div key={step.label} className="nda-modal__step-item">
+          <div key={step.label} className="nda-modal__step-item" ref={active ? activeRef : undefined}>
             <span
               className={`nda-modal__step-dot${done ? ' nda-modal__step-dot--done' : active ? ' nda-modal__step-dot--active' : ''}`}
             >
