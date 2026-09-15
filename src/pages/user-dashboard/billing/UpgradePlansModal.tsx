@@ -144,7 +144,7 @@ export function UpgradePlansModal({
                     {/* Price — stacked */}
                     <div className="bs-compare-card__price-block">
                       <span className="bs-compare-card__price-amount">
-                        R{plan.price.toLocaleString('en-ZA')}
+                        R{plan.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                       <span className="bs-compare-card__price-period">/month</span>
                     </div>

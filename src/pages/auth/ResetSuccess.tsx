@@ -22,7 +22,9 @@ const LOGIN_LABELS: Record<string, string> = {
 export default function ResetSuccess() {
   const navigate = useNavigate()
   const location = useLocation()
-  const role: Role = (location.state as { role?: Role })?.role ?? ''
+  const state = (location.state ?? {}) as { role?: Role; email?: string }
+  const role: Role = state.role ?? ''
+  const email: string = state.email ?? ''
   const [closed, setClosed] = useState(false)
 
   const loginLabel = LOGIN_LABELS[role] ?? 'Back to Login'
@@ -35,7 +37,7 @@ export default function ResetSuccess() {
       }, 100)
       return
     }
-    navigate(LOGIN_PATHS[role] ?? '/')
+    navigate(LOGIN_PATHS[role] ?? '/', { state: email ? { email } : undefined })
   }
 
   return (

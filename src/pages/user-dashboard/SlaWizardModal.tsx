@@ -360,7 +360,6 @@ function validateScreen(key: ScreenKey, data: SlaWizardData): SlaErrors {
     if (!data.creditClaimDays.trim()) e['creditClaimDays'] = 'This field is required.'
   }
   if (key === 'legal') {
-    if (!data.signatureMethod) e['signatureMethod'] = 'Select a signature method.'
     data.signatories.forEach((s, i) => {
       if (!s.name.trim()) e[`signatory_${i}_name`] = 'Name is required.'
       if (!s.title.trim()) e[`signatory_${i}_title`] = 'Title is required.'
@@ -1074,28 +1073,6 @@ export default function SlaWizardModal({
                     </FormGroup>
                   )}
 
-                  {/* Signature method */}
-                  <FormGroup label="Signature method" required error={errors['signatureMethod']}>
-                    <ToggleGroup
-                      options={['Platform signature', 'Print and sign']}
-                      value={data.signatureMethod}
-                      onChange={(v) => set('signatureMethod', v as SlaWizardData['signatureMethod'])}
-                    />
-                    <p className="nda-modal__field-hint" style={{ marginTop: 6 }}>
-                      Platform signature enables electronic signing through the portal. Print and sign produces a document for wet-ink signatures.
-                    </p>
-                  </FormGroup>
-
-                  {/* Signing order — shown when platform signature */}
-                  {data.signatureMethod === 'Platform signature' && (
-                    <FormGroup label="Signing order" required hint="Controls which party receives the document first.">
-                      <SelectInput
-                        value={data.signingOrder}
-                        onChange={(v) => set('signingOrder', v as SlaWizardData['signingOrder'])}
-                        options={['Either order', 'Your company first', 'Other party first']}
-                      />
-                    </FormGroup>
-                  )}
                 </div>
 
                 {/* Signatories */}
@@ -1146,18 +1123,22 @@ export default function SlaWizardModal({
                   {data.provider.entityType && data.provider.entityType !== 'Individual' && data.provider.regNumber && (
                     <PF label="Provider Reg" value={data.provider.regNumber} />
                   )}
-                  {data.provider.entityType && data.provider.entityType !== 'Individual' && (
+                  {data.provider.entityType && data.provider.entityType !== 'Individual' && data.provider.signatoryName && (
                     <PF label="Provider Signatory" value={`${data.provider.signatoryName}${data.provider.signatoryCapacity ? ` (${data.provider.signatoryCapacity})` : ''}`} />
                   )}
-                  <PF label="Provider Email" value={data.provider.email} />
+                  {(data.provider.email) && (
+                    <PF label="Provider Email" value={data.provider.email} />
+                  )}
                   <PF label="Customer" value={data.customer.legalName || data.customer.fullNames || data.customerName} />
                   {data.customer.entityType && data.customer.entityType !== 'Individual' && data.customer.regNumber && (
                     <PF label="Customer Reg" value={data.customer.regNumber} />
                   )}
-                  {data.customer.entityType && data.customer.entityType !== 'Individual' && (
+                  {data.customer.entityType && data.customer.entityType !== 'Individual' && data.customer.signatoryName && (
                     <PF label="Customer Signatory" value={`${data.customer.signatoryName}${data.customer.signatoryCapacity ? ` (${data.customer.signatoryCapacity})` : ''}`} />
                   )}
-                  <PF label="Customer Email" value={data.customer.email} />
+                  {(data.customer.email) && (
+                    <PF label="Customer Email" value={data.customer.email} />
+                  )}
                   <PF label="Service Description" value={data.serviceDescription} />
                   <PF label="Start Date" value={data.startDate} />
                   <PF label="Term" value={data.termType + (data.endDate ? ` — ${data.endDate}` : '')} />
@@ -1221,8 +1202,6 @@ export default function SlaWizardModal({
                   <PF label="Governing Law" value={data.governingLaw} />
                   <PF label="Dispute Resolution" value={data.disputeForum} />
                   {data.disputeForum === 'South African courts' && <PF label="Jurisdiction" value={data.jurisdictionCity} />}
-                  <PF label="Signature Method" value={data.signatureMethod} />
-                  {data.signatureMethod === 'Platform signature' && <PF label="Signing Order" value={data.signingOrder} />}
                   <PF label="Signatories" value={data.signatories.filter((s) => s.name).map((s) => `${s.name} (${s.title})`).join(', ')} />
                 </PreviewSection>
               </div>

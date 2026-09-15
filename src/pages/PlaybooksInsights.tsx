@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import fundraisingSupportIcon from '../assets/fundraising-support.svg'
 import {
   Activity,
   AlertCircle,
@@ -180,12 +181,7 @@ const ComplianceIcon = (
 )
 
 const FundraisingIcon = (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path d="M14 17V15C14 14.4696 13.7893 13.9609 13.4142 13.5858C13.0391 13.2107 12.5304 13 12 13H9C8.46957 13 7.96086 13.2107 7.58579 13.5858C7.21071 13.9609 7 14.4696 7 15V17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M14 7.56445C14.4289 7.67565 14.8087 7.92608 15.0799 8.27648C15.351 8.62689 15.4981 9.05741 15.4981 9.50045C15.4981 9.94349 15.351 10.374 15.0799 10.7244C14.8087 11.0748 14.4289 11.3253 14 11.4365" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M17 17.0004V16.0004C16.9997 15.5573 16.8522 15.1268 16.5807 14.7766C16.3092 14.4263 15.9291 14.1762 15.5 14.0654" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M10.5 11.5C11.6046 11.5 12.5 10.6046 12.5 9.5C12.5 8.39543 11.6046 7.5 10.5 7.5C9.39543 7.5 8.5 8.39543 8.5 9.5C8.5 10.6046 9.39543 11.5 10.5 11.5Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
+  <img src={fundraisingSupportIcon} width="24" height="24" aria-hidden="true" alt="" />
 )
 
 const investorCards = [

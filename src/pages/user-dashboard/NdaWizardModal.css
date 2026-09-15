@@ -265,6 +265,13 @@
   border-color: #dc2626 !important;
 }
 
+.nda-modal__field-label {
+  color: #0d1b2a;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 6px 0;
+}
+
 .nda-modal__field-error {
   color: #dc2626;
   font-size: 12px;
@@ -857,6 +864,10 @@
   font-weight: 700;
 }
 
+.nda-modal__chip--error {
+  border-color: #d9534f;
+}
+
 .nda-modal__select {
   width: 100%;
   border: 1px solid #e5e5e5;
@@ -889,7 +900,7 @@
   border: 1px solid #dfe3e8;
   border-radius: 14px;
   background: #ffffff;
-  padding: 16px 56px 16px 16px;
+  padding: 16px;
 }
 
 .nda-modal__repeat-grid {
@@ -897,8 +908,22 @@
   gap: 12px;
 }
 
+.nda-modal__repeat-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .nda-modal__repeat-grid--three {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.nda-modal__repeat-grid--purpose {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.nda-modal__repeat-grid--cookie {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr) auto;
+  align-items: start;
 }
 
 .nda-modal__repeat-grid--four {
@@ -938,6 +963,11 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.nda-modal__add-row:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .nda-modal__banner {
@@ -1140,6 +1170,22 @@
 
 .nda-modal__switch input:checked + .nda-modal__slider::before {
   transform: translateX(18px);
+}
+
+/* ── Accordion (toggle-reveal) ───────────────────────────── */
+.nda-modal__accordion {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.nda-modal__accordion--open {
+  grid-template-rows: 1fr;
+}
+
+.nda-modal__accordion-inner {
+  overflow: hidden;
+  padding-top: 2px;
 }
 
 /* ── Responsive additions ─────────────────────────────────── */

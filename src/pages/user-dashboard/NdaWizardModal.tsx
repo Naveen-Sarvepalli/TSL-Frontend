@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowLeft, ArrowRight, Check, Eye, Loader2, Pencil, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   calcNdaProgress,
   emptyParty,
@@ -618,6 +618,15 @@ export default function NdaWizardModal({
   })
   const [errors, setErrors] = useState<Errors>({})
   const [isGenerating, setIsGenerating] = useState(false)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const savedScrollRef = useRef<number>(0)
+
+  // Restore scroll position after accordion expand/collapse to prevent jump
+  useLayoutEffect(() => {
+    if (bodyRef.current) {
+      bodyRef.current.scrollTop = savedScrollRef.current
+    }
+  }, [data.non_solicit])
 
   // Re-apply the snapshot whenever the profile's key fields change
   // (covers: async load on first render, and user filling snapshot then re-opening).
@@ -813,7 +822,7 @@ export default function NdaWizardModal({
 
         {/* ── Body ── */}
         {!isGenerating && (
-          <div className="nda-modal__body">
+          <div className="nda-modal__body" ref={bodyRef}>
 
             {/* ══ STEP 1: PARTIES ══ */}
             {!isPreview && step === 1 && (
@@ -1033,23 +1042,30 @@ export default function NdaWizardModal({
                     label="Non-solicitation of staff"
                     sub="Restricts hiring each other's employees during the term."
                     checked={data.non_solicit}
-                    onChange={(v) => setTop('non_solicit', v)}
+                    onChange={(v) => {
+                      savedScrollRef.current = bodyRef.current?.scrollTop ?? 0
+                      const updated = { ...data, non_solicit: v, ...(!v && { non_solicit_months: 12 }) }
+                      setData(updated)
+                      runValidate(updated)
+                      onStepChange?.(step, updated)
+                    }}
                   />
-                  {data.non_solicit && (
-                    <FormGroup label="Non-solicitation period (months)" required error={errors['non_solicit_months']}>
-                      <input
-                        type="number"
-                        className={`nda-modal__input${errors['non_solicit_months'] ? ' nda-modal__input--error' : ''}`}
-                        value={data.non_solicit_months}
-                        min={1}
-                        onChange={(e) => {
-                          setTop('non_solicit_months', Number(e.target.value))
-                          if (errors['non_solicit_months']) setErrors((prev) => { const n = { ...prev }; delete n['non_solicit_months']; return n })
-                        }}
-                        style={{ marginTop: 12 }}
-                      />
-                    </FormGroup>
-                  )}
+                  <div className={`nda-modal__accordion${data.non_solicit ? ' nda-modal__accordion--open' : ''}`}>
+                    <div className="nda-modal__accordion-inner">
+                      <FormGroup label="Non-solicitation period (months)" required error={errors['non_solicit_months']}>
+                        <input
+                          type="number"
+                          className={`nda-modal__input${errors['non_solicit_months'] ? ' nda-modal__input--error' : ''}`}
+                          value={data.non_solicit_months}
+                          min={1}
+                          onChange={(e) => {
+                            setTop('non_solicit_months', Number(e.target.value))
+                            if (errors['non_solicit_months']) setErrors((prev) => { const n = { ...prev }; delete n['non_solicit_months']; return n })
+                          }}
+                        />
+                      </FormGroup>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -1149,7 +1165,7 @@ export default function NdaWizardModal({
                     <PreviewField label="Categories" value={data.ci_categories.join(', ')} />
                   )}
                   <PreviewField label="Standard exclusions" value={data.ci_exclusions.join(', ')} />
-                  <PreviewField label="Must be marked confidential" value={data.marking_required ? 'Yes' : 'No'} />
+                  <PreviewField label="Information must be marked confidential" value={data.marking_required ? 'Yes' : 'No'} />
                 </PreviewSection>
 
                 <PreviewSection num={3} title="Obligations" onEdit={() => goTo(3)}>

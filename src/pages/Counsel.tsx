@@ -12,15 +12,15 @@ import {
   CircleX,
   Clock3,
   Eye,
-  GitBranch,
   MessageSquare,
-  MessageSquareText,
   Scale,
   Shield,
   Target,
   Timer,
   UserCheck,
 } from 'lucide-react'
+import inlineGuidanceIcon from '../assets/inline-guidance.svg'
+import altPositionsIcon from '../assets/alt-positions.svg'
 import { ContactSection } from '../components/home/ContactSection'
 import { defaultViewport, revealUp, staggerContainer } from '../hooks/useScrollReveal'
 import { setPageMetadata } from '../services/metadata'
@@ -110,7 +110,8 @@ const supportPackageCards = [
   },
   {
     title: 'Inline Guidance',
-    icon: MessageSquareText,
+    icon: null,
+    svgIcon: inlineGuidanceIcon,
     description: 'Attorneys provide comments, redlines, and guidance directly in the workflow',
     note: 'All feedback is contextual and audit-ready',
   },
@@ -122,7 +123,8 @@ const supportPackageCards = [
   },
   {
     title: 'Alternative Positions',
-    icon: GitBranch,
+    icon: null,
+    svgIcon: altPositionsIcon,
     description: 'Suggested alternative clauses or negotiation positions with rationale',
     note: 'Options tailored to your risk appetite',
   },
@@ -344,7 +346,9 @@ export default function Counsel() {
               return (
                 <motion.article key={card.title} className="counsel-package-card" variants={revealUp}>
                   <span className="counsel-package-card__icon">
-                    <Icon size={22} strokeWidth={2.0} />
+                    {(card as any).svgIcon
+                      ? <img src={(card as any).svgIcon} alt="" aria-hidden="true" width={22} height={22} />
+                      : Icon && <Icon size={22} strokeWidth={2.0} />}
                   </span>
                   <h3>{card.title}</h3>
                   <p>{card.description}</p>
