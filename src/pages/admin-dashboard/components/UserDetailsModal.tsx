@@ -24,14 +24,11 @@ interface UserDetailsModalProps {
 const PLANS   = ['Launchpad', 'Operator', 'Boardroom']
 const STATUSES = ['Active', 'Inactive']
 
-const EMAIL_RE = /^[a-zA-Z0-9_%+\-]+([a-zA-Z0-9._%+\-]*[a-zA-Z0-9_%+\-]+)?@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
 const PHONE_RE = /^[+\d][\d\s\-().]{6,19}$/
 
 function validate(form: UserData): Partial<Record<keyof UserData, string>> {
   const errors: Partial<Record<keyof UserData, string>> = {}
   if (!form.name.trim())    errors.name    = 'Contact person is required.'
-  if (!form.email.trim())   errors.email   = 'Email address is required.'
-  else if (!EMAIL_RE.test(form.email.trim())) errors.email = 'Enter a valid email address.'
   if (!form.company?.trim()) errors.company = 'Company name is required.'
   if (form.phone && !PHONE_RE.test(form.phone.trim())) errors.phone = 'Enter a valid phone number.'
   return errors
@@ -101,9 +98,7 @@ export default function UserDetailsModal({ isOpen, onClose, user, onSaved, onToa
             <div className="user-details-modal__field">
               <label htmlFor="udm-email">Email Address</label>
               <input id="udm-email" type="email" value={form.email}
-                onChange={(e) => set('email', e.target.value)}
-                className={errors.email ? 'udm-input--error' : ''} />
-              {err('email')}
+                readOnly className="udm-input--readonly" />
             </div>
           </div>
 
