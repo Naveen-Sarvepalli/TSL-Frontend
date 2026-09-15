@@ -259,14 +259,23 @@ function getScreenOrder(modules: string[]): ScreenKey[] {
 function StepBar({ screens, current, isPreview }: {
   screens: ScreenKey[]; current: ScreenKey; isPreview: boolean
 }) {
+  const stripRef = useRef<HTMLDivElement>(null)
+  const activeRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (activeRef.current && stripRef.current) {
+      activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+    }
+  }, [current, isPreview])
+
   return (
-    <div className="nda-modal__steps">
+    <div className="nda-modal__steps" ref={stripRef}>
       {screens.map((key, i) => {
         const idx = screens.indexOf(current)
         const done = isPreview || i < idx
         const active = !isPreview && key === current
         return (
-          <div key={key} className="nda-modal__step-item">
+          <div key={key} className="nda-modal__step-item" ref={active ? activeRef : undefined}>
             <span className={`nda-modal__step-dot${done ? ' nda-modal__step-dot--done' : active ? ' nda-modal__step-dot--active' : ''}`}>
               {done ? <Check size={13} strokeWidth={3} /> : i + 1}
             </span>
