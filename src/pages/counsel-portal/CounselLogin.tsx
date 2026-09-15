@@ -1,4 +1,4 @@
-import { Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react'
+import { Eye, EyeOff, LockKeyhole, Mail, X } from 'lucide-react'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -13,6 +13,7 @@ export default function CounselLogin() {
   const location = useLocation()
   const locationState = (location.state ?? null) as LoginLocationState
   const [showPassword, setShowPassword] = useState(false)
+  const [closed, setClosed] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({
@@ -65,11 +66,19 @@ export default function CounselLogin() {
   return (
     <>
       <Home />
-      {createPortal(
+      {!closed && createPortal(
         <div className="auth-overlay">
           <form className="auth-overlay__card" onSubmit={submitLogin} noValidate>
             {/* Gold header */}
             <div className="auth-overlay__header">
+              <button
+                type="button"
+                className="auth-overlay__close"
+                aria-label="Close"
+                onClick={() => setClosed(true)}
+              >
+                <X size={18} />
+              </button>
               <p className="auth-overlay__header-title">Welcome Back to the TSL Counsel Portal</p>
               <p className="auth-overlay__header-sub">Sign in to review assigned legal requests and manage your availability.</p>
             </div>
