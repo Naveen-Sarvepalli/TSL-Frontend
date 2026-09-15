@@ -36,7 +36,6 @@ function validatePhone(v: string) {
 }
 function validateMessage(v: string) {
   if (!v) return 'Message is required.'
-  if (v.length < 10) return 'Message should contain at least 10 characters.'
   return ''
 }
 
