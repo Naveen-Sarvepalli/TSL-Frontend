@@ -965,6 +965,11 @@
   cursor: pointer;
 }
 
+.nda-modal__add-row:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .nda-modal__banner {
   display: flex;
   align-items: flex-start;

@@ -1091,7 +1091,7 @@ export default function FounderAgreementWizardModal({
                           submitErrors={Object.fromEntries(Object.entries(errors).filter(([k]) => k.startsWith(`priorIp_${i}_`)).map(([k, v]) => [k.replace(`priorIp_${i}_`, ''), v]))} />
                       ))}
                     </div>
-                    <AddRowBtn label="+ Add pre-existing IP" onClick={addPriorIp} disabled={ipSectionLocked} />
+                    <AddRowBtn label="+ Add pre-existing IP" onClick={addPriorIp} disabled={ipSectionLocked || data.priorIpNil} />
                     <label className="fa-nil-checkbox">
                       <input type="checkbox" checked={data.priorIpNil}
                         onChange={e => set('priorIpNil', e.target.checked)} disabled={ipSectionLocked} />
